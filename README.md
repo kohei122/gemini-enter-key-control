@@ -1,0 +1,30 @@
+# ChatGPT Enter Lock (Marusin)
+
+A Chrome extension that prevents accidental message sending in ChatGPT.
+
+## Features
+
+- Press Enter to insert a newline  
+- Press Shift + Enter to send your message  
+
+## Benefits
+
+- Write longer prompts without accidental sending  
+- Improve typing comfort and control  
+- Reduce mistakes when editing messages  
+
+## Privacy
+
+- No data collection  
+- No external communication  
+- Works only on ChatGPT  
+
+## Installation
+
+1. Download from Chrome Web Store  
+2. Enable the extension  
+3. Start using ChatGPT with improved input behavior  
+
+## Developer
+
+Developed by Ori no Marushin

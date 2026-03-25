@@ -1,15 +1,19 @@
 {
   "manifest_version": 3,
-  "name": "ChatGPT Enter Lock (Marusin)",
-  "version": "1.0.0",
+  "name": "ChatGPT Enter Key Control (by marusin)",
+  "version": "1.1.0",
   "description": "Prevent accidental message sending in ChatGPT. Press Enter for newline, Shift+Enter to send.",
   "icons": {
     "16": "icon16.png",
     "48": "icon48.png",
     "128": "icon128.png"
   },
+  "permissions": [
+    "storage"
+  ],
   "action": {
-    "default_title": "ChatGPT Enter Lock (Marusin)",
+    "default_title": "ChatGPT Enter Key Control (by marusin)",
+    "default_popup": "popup.html",
     "default_icon": {
       "16": "icon16.png",
       "48": "icon48.png",

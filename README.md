@@ -1,4 +1,4 @@
-# ChatGPT Enter Lock (Marusin)
+# ChatGPT Enter Key Control (by marusin)
 
 A Chrome extension that prevents accidental message sending in ChatGPT.
 
@@ -28,3 +28,4 @@ A Chrome extension that prevents accidental message sending in ChatGPT.
 ## Developer
 
 Developed by Ori no Marushin
+

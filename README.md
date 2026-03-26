@@ -1,6 +1,6 @@
-# ChatGPT Enter Key Control (by marusin)
+# Gemini Enter Key Control (by marusin)
 
-A Chrome extension that prevents accidental message sending in ChatGPT.
+A Chrome extension that controls Enter key behavior in Gemini.
 
 ## Features
 
@@ -17,13 +17,17 @@ A Chrome extension that prevents accidental message sending in ChatGPT.
 
 - No data collection  
 - No external communication  
-- Works only on ChatGPT  
+- Works only on Gemini  
+
+## Note
+
+- This extension depends on Gemini's internal UI/event behavior, so future Gemini UI changes may affect functionality.
 
 ## Installation
 
 1. Download from Chrome Web Store  
 2. Enable the extension  
-3. Start using ChatGPT with improved input behavior  
+3. Start using Gemini with improved input behavior  
 
 ## Developer
 

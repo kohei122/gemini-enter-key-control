@@ -1,0 +1,15 @@
+{
+  "extensionName": {
+    "message": "Gemini Enter Key Control (by marusin)"
+  },
+  "extensionDescription": {
+    "message": "GeminiでのEnterキーの挙動を制御します。Enterで改行、Shift+EnterやCtrl+Enterで送信できます。"
+  },
+  "enableEnterControl": {
+    "message": "有効化"
+  },
+  "sendKey": {
+    "message": "送信キー"
+  }
+}
+

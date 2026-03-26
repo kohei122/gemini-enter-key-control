@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "ChatGPT Enter Key Control (by marusin)",
-  "version": "1.1.0",
-  "description": "Prevent accidental message sending in ChatGPT. Press Enter for newline, Shift+Enter to send.",
+  "default_locale": "en",
+  "name": "__MSG_extensionName__",
+  "version": "1.1.1",
+  "description": "__MSG_extensionDescription__",
   "icons": {
     "16": "icon16.png",
     "48": "icon48.png",
@@ -12,7 +13,7 @@
     "storage"
   ],
   "action": {
-    "default_title": "ChatGPT Enter Key Control (by marusin)",
+    "default_title": "__MSG_extensionName__",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icon16.png",
@@ -23,10 +24,9 @@
   "content_scripts": [
     {
       "matches": [
-        "https://chatgpt.com/*",
-        "https://chat.openai.com/*"
+        "https://gemini.google.com/*"
       ],
-      "js": ["content.js"],
+      "js": ["content_script.js"],
       "run_at": "document_idle"
     }
   ]

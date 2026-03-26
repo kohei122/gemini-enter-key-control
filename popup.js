@@ -17,6 +17,16 @@ function sanitizeMode(mode) {
 const toggle = document.getElementById("toggle");
 const radios = document.querySelectorAll('input[name="mode"]');
 const appVersion = document.getElementById("app-version");
+const enableEnterControlLabel = document.getElementById("label-enable-enter-control");
+const sendKeyTitle = document.getElementById("title-send-key");
+
+if (enableEnterControlLabel) {
+  enableEnterControlLabel.textContent = chrome.i18n.getMessage("enableEnterControl");
+}
+
+if (sendKeyTitle) {
+  sendKeyTitle.textContent = chrome.i18n.getMessage("sendKey");
+}
 
 if (appVersion) {
   appVersion.textContent = `v${chrome.runtime.getManifest().version}`;
@@ -46,4 +56,3 @@ radios.forEach((radio) => {
     chrome.storage.local.set({ mode: sanitizeMode(radio.value) });
   });
 });
-

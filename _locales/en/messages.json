@@ -1,0 +1,15 @@
+{
+  "extensionName": {
+    "message": "Gemini Enter Key Control (by marusin)"
+  },
+  "extensionDescription": {
+    "message": "Control Enter key behavior in Gemini. Press Enter for newline, Shift+Enter/Ctrl+Enter to send."
+  },
+  "enableEnterControl": {
+    "message": "Enable Enter control"
+  },
+  "sendKey": {
+    "message": "Send key"
+  }
+}
+

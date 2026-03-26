@@ -1,0 +1,15 @@
+{
+  "extensionName": {
+    "message": "Gemini Enter Key Control (by marusin)"
+  },
+  "extensionDescription": {
+    "message": "控制 Gemini 中 Enter 键的行为。按 Enter 换行，按 Shift+Enter 或 Ctrl+Enter 发送。"
+  },
+  "enableEnterControl": {
+    "message": "启用 Enter 控制"
+  },
+  "sendKey": {
+    "message": "发送键"
+  }
+}
+

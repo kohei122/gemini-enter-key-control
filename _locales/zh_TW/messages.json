@@ -6,13 +6,13 @@
     "message": "Gemini Enter Key Control"
   },
   "appDescription": {
-    "message": "防止在 Gemini 和 NotebookLM 聊天中本想换行却误发送。"
+    "message": "防止在 Gemini 和 NotebookLM 聊天中原本想換行卻誤送訊息。"
   },
   "enableEnterControl": {
-    "message": "启用 Enter 控制"
+    "message": "啟用 Enter 控制"
   },
   "sendKey": {
-    "message": "发送键"
+    "message": "送出鍵"
   },
   "modeShift": {
     "message": "Shift+Enter"
@@ -36,15 +36,15 @@
     "message": "Shift / Ctrl / Cmd + Enter"
   },
   "language": {
-    "message": "语言"
+    "message": "語言"
   },
   "languageSetting": {
-    "message": "语言设置"
+    "message": "語言設定"
   },
   "versionLabel": {
     "message": "版本"
   },
   "otherExtensions": {
-    "message": "查看 Chrome 扩展"
+    "message": "查看 Chrome 擴充功能"
   }
 }

@@ -1,15 +1,50 @@
 {
-  "extensionName": {
+  "appName": {
     "message": "Gemini Enter Key Control (by marusin)"
   },
-  "extensionDescription": {
-    "message": "Control Enter key behavior in Gemini. Press Enter for newline, Shift+Enter/Ctrl+Enter to send."
+  "appNameShort": {
+    "message": "Gemini Enter Key Control"
+  },
+  "appDescription": {
+    "message": "Prevent accidental sends when you meant to insert a line break in Gemini and NotebookLM chats."
   },
   "enableEnterControl": {
     "message": "Enable Enter control"
   },
   "sendKey": {
     "message": "Send key"
+  },
+  "modeShift": {
+    "message": "Shift+Enter"
+  },
+  "modeCtrl": {
+    "message": "Ctrl+Enter"
+  },
+  "modeCmd": {
+    "message": "Cmd+Enter"
+  },
+  "modeCombo": {
+    "message": "Shift+Ctrl+Enter"
+  },
+  "modeShiftCmd": {
+    "message": "Shift+Cmd+Enter"
+  },
+  "modeBoth": {
+    "message": "Shift+Enter / Ctrl+Enter"
+  },
+  "modeBothMac": {
+    "message": "Shift / Ctrl / Cmd + Enter"
+  },
+  "language": {
+    "message": "Language"
+  },
+  "languageSetting": {
+    "message": "Language setting"
+  },
+  "versionLabel": {
+    "message": "Version"
+  },
+  "otherExtensions": {
+    "message": "View Chrome extensions"
   }
 }
-

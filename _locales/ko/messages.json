@@ -1,15 +1,50 @@
 {
-  "extensionName": {
+  "appName": {
     "message": "Gemini Enter Key Control (by marusin)"
   },
-  "extensionDescription": {
-    "message": "Gemini에서 Enter 키 동작을 제어합니다. Enter는 줄바꿈, Shift+Enter 또는 Ctrl+Enter로 전송합니다."
+  "appNameShort": {
+    "message": "Gemini Enter Key Control"
+  },
+  "appDescription": {
+    "message": "Gemini와 NotebookLM 채팅에서 줄바꿈하려다 실수로 전송하는 일을 방지합니다."
   },
   "enableEnterControl": {
     "message": "Enter 제어 활성화"
   },
   "sendKey": {
     "message": "전송 키"
+  },
+  "modeShift": {
+    "message": "Shift+Enter"
+  },
+  "modeCtrl": {
+    "message": "Ctrl+Enter"
+  },
+  "modeCmd": {
+    "message": "Cmd+Enter"
+  },
+  "modeCombo": {
+    "message": "Shift+Ctrl+Enter"
+  },
+  "modeShiftCmd": {
+    "message": "Shift+Cmd+Enter"
+  },
+  "modeBoth": {
+    "message": "Shift+Enter / Ctrl+Enter"
+  },
+  "modeBothMac": {
+    "message": "Shift / Ctrl / Cmd + Enter"
+  },
+  "language": {
+    "message": "언어"
+  },
+  "languageSetting": {
+    "message": "언어 설정"
+  },
+  "versionLabel": {
+    "message": "버전"
+  },
+  "otherExtensions": {
+    "message": "Chrome 확장 보기"
   }
 }
-

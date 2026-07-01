@@ -46,5 +46,8 @@
   },
   "otherExtensions": {
     "message": "Chrome拡張を見る"
+  },
+  "sidePanelNotice": {
+    "message": "この拡張機能は gemini.google.com と notebooklm.google.com 上で動作します。Chrome内蔵のGeminiサイドパネルには適用されません。"
   }
 }

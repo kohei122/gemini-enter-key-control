@@ -46,5 +46,8 @@
   },
   "otherExtensions": {
     "message": "Chrome 확장 보기"
+  },
+  "sidePanelNotice": {
+    "message": "이 확장 프로그램은 gemini.google.com 및 notebooklm.google.com에서 작동합니다. Chrome에 내장된 Gemini 사이드 패널에는 적용되지 않습니다."
   }
 }

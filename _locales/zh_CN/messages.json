@@ -46,5 +46,8 @@
   },
   "otherExtensions": {
     "message": "查看 Chrome 扩展"
+  },
+  "sidePanelNotice": {
+    "message": "此扩展程序适用于 gemini.google.com 和 notebooklm.google.com。它不适用于 Chrome 内置的 Gemini 侧边面板。"
   }
 }

@@ -46,5 +46,8 @@
   },
   "otherExtensions": {
     "message": "Ver extensões do Chrome"
+  },
+  "sidePanelNotice": {
+    "message": "Esta extensão funciona em gemini.google.com e notebooklm.google.com. Ela não se aplica ao painel lateral do Gemini integrado ao Chrome."
   }
 }

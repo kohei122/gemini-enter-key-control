@@ -28,6 +28,11 @@ A Chrome extension that controls Enter key behavior in Gemini and NotebookLM cha
 
 ## Changelog
 
+### 1.3.0
+- Improved IME handling for Japanese, Chinese, Korean, and other composition-based input methods.
+- Fixed duplicate content script initialization to prevent repeated newline handling.
+- Added a clearer note that Chrome's built-in Gemini side panel is not supported.
+
 ### 1.2.2
 - Added Spanish localization
 - Added Brazilian Portuguese localization

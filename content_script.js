@@ -1,7 +1,9 @@
 (() => {
 const INIT_KEY = "__geminiEnterKeyControlInitialized";
-if (window[INIT_KEY]) return;
+const INIT_MARKER_ATTRIBUTE = "data-gemini-enter-key-control-initialized";
+if (window[INIT_KEY] || document.documentElement?.hasAttribute(INIT_MARKER_ATTRIBUTE)) return;
 window[INIT_KEY] = true;
+document.documentElement?.setAttribute(INIT_MARKER_ATTRIBUTE, "true");
 
 // Local verification only. Always keep this false before publishing.
 const DEBUG_USE_EXEC_COMMAND_NEWLINE = false;
@@ -33,6 +35,7 @@ const DEFAULT_SETTINGS = {
   enabled: true,
   mode: "shift"
 };
+const DEV_FORCE_MAC_PLATFORM_KEY = "devForceMacPlatform";
 
 const TEXTBOX_SELECTOR = 'div[contenteditable="true"][role="textbox"]';
 const NOTEBOOKLM_CHAT_TEXTAREA_SELECTOR = "textarea.query-box-input";
@@ -60,17 +63,66 @@ const GEMINI_EXCLUDED_BUTTON_CLASS_PATTERNS = [
 
 let settings = { ...DEFAULT_SETTINGS };
 let settingsLoaded = false;
+let isMacPlatform = false;
 let isDispatchingSyntheticEnter = false;
+let isComposingActive = false;
+let lastCompositionEndAt = 0;
+const COMPOSITION_END_GRACE_MS = 80;
 
-chrome.storage.local.get(DEFAULT_SETTINGS, (stored) => {
-  const next = {
-    enabled: sanitizeEnabled(stored.enabled),
-    mode: sanitizeMode(stored.mode)
-  };
-  settings = next;
-  settingsLoaded = true;
-  chrome.storage.local.set(next);
-});
+function sanitizeModeForPlatform(mode, isMac) {
+  const sanitized = sanitizeMode(mode);
+  if (!isMac && (sanitized === "cmd" || sanitized === "shiftCmd")) {
+    return "shift";
+  }
+  return sanitized;
+}
+
+function getIsMacPlatform() {
+  return new Promise((resolve) => {
+    if (typeof chrome === "undefined" || !chrome.runtime?.getPlatformInfo) {
+      resolve(false);
+      return;
+    }
+
+    chrome.runtime.getPlatformInfo((info) => {
+      if (chrome.runtime.lastError) {
+        resolve(false);
+        return;
+      }
+      resolve(info?.os === "mac");
+    });
+  });
+}
+
+function getDevForceMacPlatform() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get({ [DEV_FORCE_MAC_PLATFORM_KEY]: false }, (stored) => {
+      resolve(stored[DEV_FORCE_MAC_PLATFORM_KEY] === true);
+    });
+  });
+}
+
+async function resolveIsMacPlatform() {
+  const devForceMacPlatform = await getDevForceMacPlatform();
+  if (devForceMacPlatform) return true;
+  return getIsMacPlatform();
+}
+
+async function loadSettings() {
+  isMacPlatform = await resolveIsMacPlatform();
+
+  chrome.storage.local.get(DEFAULT_SETTINGS, (stored) => {
+    const next = {
+      enabled: sanitizeEnabled(stored.enabled),
+      mode: sanitizeModeForPlatform(stored.mode, isMacPlatform)
+    };
+    settings = next;
+    settingsLoaded = true;
+    chrome.storage.local.set(next);
+  });
+}
+
+loadSettings();
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;
@@ -80,7 +132,14 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 
   if (changes.mode) {
-    settings.mode = sanitizeMode(changes.mode.newValue);
+    settings.mode = sanitizeModeForPlatform(changes.mode.newValue, isMacPlatform);
+  }
+
+  if (changes[DEV_FORCE_MAC_PLATFORM_KEY]) {
+    resolveIsMacPlatform().then((nextIsMacPlatform) => {
+      isMacPlatform = nextIsMacPlatform;
+      settings.mode = sanitizeModeForPlatform(settings.mode, isMacPlatform);
+    });
   }
 });
 
@@ -393,7 +452,10 @@ function handleKey(event) {
   if (!event.isTrusted) return;
 
   // IME composing/confirming should be untouched to avoid input corruption.
-  if (event.isComposing || event.keyCode === 229) return;
+  const inCompositionGraceWindow =
+    lastCompositionEndAt > 0 &&
+    performance.now() - lastCompositionEndAt < COMPOSITION_END_GRACE_MS;
+  if (isComposingActive || event.isComposing || event.keyCode === 229 || inCompositionGraceWindow) return;
 
   const isEnter = event.code === "Enter" || event.code === "NumpadEnter";
   if (!isEnter) return;
@@ -407,7 +469,7 @@ function handleKey(event) {
   const isCtrl = event.ctrlKey;
   const isAlt = event.altKey;
   const isMeta = event.metaKey;
-  const mode = sanitizeMode(settings.mode);
+  const mode = sanitizeModeForPlatform(settings.mode, isMacPlatform);
   // Exclusive modifier logic avoids accidental cross-mode sends.
   const isSend = shouldSendByMode(mode, isShift, isCtrl, isAlt, isMeta);
 
@@ -445,4 +507,17 @@ function handleKey(event) {
 }
 
 document.addEventListener("keydown", handleKey, true);
+
+document.addEventListener("compositionstart", (event) => {
+  const { notebookLmTextarea, textbox } = getControlledInput(event.target);
+  if (!notebookLmTextarea && !textbox) return;
+  isComposingActive = true;
+}, true);
+
+document.addEventListener("compositionend", (event) => {
+  const { notebookLmTextarea, textbox } = getControlledInput(event.target);
+  if (!notebookLmTextarea && !textbox) return;
+  isComposingActive = false;
+  lastCompositionEndAt = performance.now();
+}, true);
 })();

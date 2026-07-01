@@ -46,6 +46,7 @@ const secondaryContent = document.getElementById("secondary-content");
 const otherExtensionsLink = document.getElementById("other-extensions-link");
 const languageSettingLabel = document.getElementById("language-setting-label");
 const languageSelect = document.getElementById("language-select");
+const sidePanelNotice = document.getElementById("side-panel-notice");
 const i18nElements = document.querySelectorAll("[data-i18n]");
 let isMacPlatform = false;
 
@@ -98,6 +99,10 @@ function applyPopupTexts(forcedMessages, isMac) {
 
   if (otherExtensionsLink) {
     otherExtensionsLink.textContent = getMessage("otherExtensions", forcedMessages);
+  }
+
+  if (sidePanelNotice) {
+    sidePanelNotice.textContent = getMessage("sidePanelNotice", forcedMessages);
   }
 
   if (appVersion) {

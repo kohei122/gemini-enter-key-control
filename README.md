@@ -28,6 +28,11 @@ A Chrome extension that controls Enter key behavior in Gemini and NotebookLM cha
 
 ## Changelog
 
+### 1.3.1
+- Improved send shortcut compatibility for Gemini in many non-Japanese UI languages.
+- Improved send button detection for multilingual Gemini UI labels.
+- Adjusted send button detection to avoid feedback, comment, and report buttons.
+
 ### 1.3.0
 - Improved IME handling for Japanese, Chinese, Korean, and other composition-based input methods.
 - Fixed duplicate content script initialization to prevent repeated newline handling.

@@ -43,18 +43,148 @@ const NOTEBOOKLM_EXCLUDED_TEXTAREA_SELECTOR =
   'textarea.query-box-textarea, textarea[formcontrolname="discoverSourcesQuery"]';
 const NOTEBOOKLM_SEND_BUTTON_SELECTOR = 'button.submit-button[type="submit"]';
 const SEND_BUTTON_SELECTORS = [
-  'button[aria-label]',
-  '[role="button"][aria-label]'
+  'button[aria-label]'
 ];
 const GEMINI_SEND_ARIA_LABEL_PATTERNS = [
   "プロンプトを送信",
+  "メッセージを送信",
+  "送信",
   "Send prompt",
   "Send message",
-  "Send"
+  "Send",
+  "Envoyer un message",
+  "Envoyer",
+  "Enviar mensaje",
+  "Enviar mensagem",
+  "Enviar",
+  "Senden",
+  "Nachricht senden",
+  "Invia",
+  "Invia messaggio",
+  "Invia un messaggio",
+  "Verzenden",
+  "Bericht verzenden",
+  "Wyślij",
+  "Wyślij wiadomość",
+  "Gönder",
+  "Mesaj gönder",
+  "Kirim",
+  "Kirim pesan",
+  "Gửi",
+  "Gửi tin nhắn",
+  "ส่ง",
+  "ส่งข้อความ",
+  "भेजें",
+  "संदेश भेजें",
+  "إرسال",
+  "إرسال رسالة",
+  "שלח",
+  "שליחת הודעה",
+  "Отправить",
+  "Отправить сообщение",
+  "Надіслати",
+  "Надіслати повідомлення",
+  "메시지 보내기",
+  "보내기",
+  "전송",
+  "发送消息",
+  "发送",
+  "傳送訊息",
+  "傳送",
+  "送出"
+];
+const GEMINI_SEND_ARIA_LABEL_LOWERCASE_PATTERNS = [
+  "send",
+  "envoyer",
+  "enviar",
+  "senden",
+  "invia",
+  "verzenden",
+  "wyślij",
+  "gönder",
+  "kirim",
+  "gửi",
+  "отправить",
+  "надіслати"
 ];
 const GEMINI_EXCLUDED_BUTTON_ARIA_LABEL_PATTERNS = [
   "その他のオプション",
-  "More options"
+  "More options",
+  "mic",
+  "microphone",
+  "attach",
+  "attachment",
+  "settings",
+  "sidebar",
+  "history",
+  "menu",
+  "options",
+  "feedback",
+  "comment",
+  "report",
+  "commentaire",
+  "commentaires",
+  "retour",
+  "comentario",
+  "comentarios",
+  "informar",
+  "comentário",
+  "comentários",
+  "kommentar",
+  "melden",
+  "commento",
+  "commenti",
+  "segnala",
+  "opmerking",
+  "opinia",
+  "komentarz",
+  "zgłoś",
+  "geri bildirim",
+  "yorum",
+  "bildir",
+  "masukan",
+  "komentar",
+  "laporkan",
+  "phản hồi",
+  "bình luận",
+  "báo cáo",
+  "ความคิดเห็น",
+  "รายงาน",
+  "प्रतिक्रिया",
+  "टिप्पणी",
+  "रिपोर्ट",
+  "تعليقات",
+  "ملاحظات",
+  "إبلاغ",
+  "משוב",
+  "תגובה",
+  "דווח",
+  "отзыв",
+  "комментарий",
+  "пожаловаться",
+  "відгук",
+  "коментар",
+  "поскаржитися",
+  "コメント",
+  "フィードバック",
+  "報告",
+  "의견",
+  "피드백",
+  "댓글",
+  "신고",
+  "反馈",
+  "评论",
+  "举报",
+  "意見回饋",
+  "回饋",
+  "評論",
+  "檢舉",
+  "意見",
+  "マイク",
+  "添付",
+  "設定",
+  "サイドバー",
+  "履歴"
 ];
 const GEMINI_EXCLUDED_BUTTON_CLASS_PATTERNS = [
   "gem-conversation-actions-menu-button",
@@ -231,9 +361,11 @@ function includesAny(value, patterns) {
 
 function isExcludedGeminiButton(candidate) {
   const ariaLabel = candidate.getAttribute("aria-label") || "";
+  const normalizedAriaLabel = ariaLabel.toLowerCase();
   const className = String(candidate.className || "");
 
   if (includesAny(ariaLabel, GEMINI_EXCLUDED_BUTTON_ARIA_LABEL_PATTERNS)) return true;
+  if (includesAny(normalizedAriaLabel, GEMINI_EXCLUDED_BUTTON_ARIA_LABEL_PATTERNS)) return true;
   if (includesAny(className, GEMINI_EXCLUDED_BUTTON_CLASS_PATTERNS)) return true;
   if (candidate.hasAttribute("mat-menu-trigger")) return true;
   if (candidate.getAttribute("aria-haspopup") === "menu") return true;
@@ -242,13 +374,15 @@ function isExcludedGeminiButton(candidate) {
 }
 
 function isValidGeminiSendButton(candidate) {
-  if (!(candidate instanceof HTMLElement)) return false;
+  if (!(candidate instanceof HTMLButtonElement)) return false;
   if (!isElementVisible(candidate)) return false;
   if (isElementDisabled(candidate)) return false;
   if (isExcludedGeminiButton(candidate)) return false;
 
   const ariaLabel = candidate.getAttribute("aria-label") || "";
-  return includesAny(ariaLabel, GEMINI_SEND_ARIA_LABEL_PATTERNS);
+  const normalizedAriaLabel = ariaLabel.toLowerCase();
+  return includesAny(ariaLabel, GEMINI_SEND_ARIA_LABEL_PATTERNS) ||
+    includesAny(normalizedAriaLabel, GEMINI_SEND_ARIA_LABEL_LOWERCASE_PATTERNS);
 }
 
 function describeElement(element) {

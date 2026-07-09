@@ -43,8 +43,12 @@ const NOTEBOOKLM_EXCLUDED_TEXTAREA_SELECTOR =
   'textarea.query-box-textarea, textarea[formcontrolname="discoverSourcesQuery"]';
 const NOTEBOOKLM_SEND_BUTTON_SELECTOR = 'button.submit-button[type="submit"]';
 const SEND_BUTTON_SELECTORS = [
-  'button[aria-label]'
+  "button"
 ];
+const GEMINI_COMPOSER_ROOT_MAX_ANCESTOR_DEPTH = 10;
+const GEMINI_COMPOSER_ROOT_MAX_BUTTONS = 24;
+const GEMINI_SEND_BUTTON_AMBIGUOUS_SCORE_GAP = 15;
+const GEMINI_SEND_BUTTON_MIN_SCORE = 70;
 const GEMINI_SEND_ARIA_LABEL_PATTERNS = [
   "プロンプトを送信",
   "メッセージを送信",
@@ -64,6 +68,8 @@ const GEMINI_SEND_ARIA_LABEL_PATTERNS = [
   "Invia un messaggio",
   "Verzenden",
   "Bericht verzenden",
+  "Bericht sturen",
+  "Sturen",
   "Wyślij",
   "Wyślij wiadomość",
   "Gönder",
@@ -76,6 +82,8 @@ const GEMINI_SEND_ARIA_LABEL_PATTERNS = [
   "ส่งข้อความ",
   "भेजें",
   "संदेश भेजें",
+  "सबमिट करें",
+  "सबमिट",
   "إرسال",
   "إرسال رسالة",
   "שלח",
@@ -100,10 +108,12 @@ const GEMINI_SEND_ARIA_LABEL_LOWERCASE_PATTERNS = [
   "senden",
   "invia",
   "verzenden",
+  "sturen",
   "wyślij",
   "gönder",
   "kirim",
   "gửi",
+  "सबमिट",
   "отправить",
   "надіслати"
 ];
@@ -112,13 +122,29 @@ const GEMINI_EXCLUDED_BUTTON_ARIA_LABEL_PATTERNS = [
   "More options",
   "mic",
   "microphone",
+  "microfoon",
+  "voice",
+  "audio",
   "attach",
   "attachment",
+  "upload",
+  "uploaden",
+  "file",
+  "image",
+  "tools",
   "settings",
   "sidebar",
   "history",
+  "recent",
   "menu",
   "options",
+  "more",
+  "open",
+  "close",
+  "expand",
+  "collapse",
+  "model",
+  "moduskiezer",
   "feedback",
   "comment",
   "report",
@@ -153,6 +179,13 @@ const GEMINI_EXCLUDED_BUTTON_ARIA_LABEL_PATTERNS = [
   "प्रतिक्रिया",
   "टिप्पणी",
   "रिपोर्ट",
+  "फ़ाइल",
+  "अपलोड",
+  "टूल",
+  "मोड",
+  "पिकर",
+  "माइक्रोफ़ोन",
+  "माइक्रोफोन",
   "تعليقات",
   "ملاحظات",
   "إبلاغ",
@@ -184,12 +217,27 @@ const GEMINI_EXCLUDED_BUTTON_ARIA_LABEL_PATTERNS = [
   "添付",
   "設定",
   "サイドバー",
-  "履歴"
+  "履歴",
+  "音声",
+  "画像",
+  "ファイル",
+  "開く",
+  "閉じる"
 ];
 const GEMINI_EXCLUDED_BUTTON_CLASS_PATTERNS = [
   "gem-conversation-actions-menu-button",
   "mat-menu-trigger"
 ];
+const GEMINI_EXCLUDED_BUTTON_METADATA_PATTERN =
+  /\b(?:feedback|comment|report|mic|microphone|voice|audio|attach|attachment|upload|file|image|menu|more|option|settings|sidebar|history|recent|model|selector|open|close|expand|collapse)\b/i;
+const GEMINI_SEND_BUTTON_METADATA_PATTERN = /\b(?:send|submit)\b/i;
+const GEMINI_SEND_BUTTON_JSLOG_PREFIX = "173899";
+const GEMINI_EXCLUDED_BUTTON_JSLOG_PREFIXES = [
+  "300142",
+  "175863",
+  "206752"
+];
+const GEMINI_MODE_PICKER_DATA_TEST_ID = "bard-mode-menu-button";
 
 let settings = { ...DEFAULT_SETTINGS };
 let settingsLoaded = false;
@@ -320,69 +368,240 @@ function collectCandidates(root, selector, list, seen) {
 }
 
 function findSendButton(textbox) {
-  const candidates = collectSendButtonCandidates(textbox);
+  const candidates = collectGeminiSendButtonCandidates(textbox);
+  const rankedCandidates = candidates
+    .map((candidate) => ({
+      button: candidate,
+      score: scoreGeminiSendButton(candidate, textbox, candidate.geminiComposerRoot),
+      hasStrongSendSignal: hasStrongGeminiSendSignal(candidate)
+    }))
+    .filter((candidate) => candidate.score >= GEMINI_SEND_BUTTON_MIN_SCORE && candidate.hasStrongSendSignal)
+    .sort((a, b) => b.score - a.score);
+
+  if (rankedCandidates.length === 0) {
+    return findSendButtonBySingleRemainingCandidate(candidates);
+  }
+  if (
+    rankedCandidates.length > 1 &&
+    rankedCandidates[0].score - rankedCandidates[1].score < GEMINI_SEND_BUTTON_AMBIGUOUS_SCORE_GAP
+  ) {
+    return null;
+  }
+
+  return rankedCandidates[0].button;
+}
+
+function findSendButtonBySingleRemainingCandidate(candidates) {
+  const remainingCandidates = candidates.filter((candidate) => isSelectableGeminiButton(candidate));
+  return remainingCandidates.length === 1 ? remainingCandidates[0] : null;
+}
+
+function collectSendButtonCandidates(textbox) {
+  return collectGeminiSendButtonCandidates(textbox);
+}
+
+function collectGeminiSendButtonCandidates(textbox) {
+  const candidates = [];
+  const seen = new Set();
+  const root = findGeminiComposerRoot(textbox);
+
+  if (!root) return candidates;
+
+  for (const selector of SEND_BUTTON_SELECTORS) {
+    collectCandidates(root, selector, candidates, seen);
+  }
 
   for (const candidate of candidates) {
-    if (!isValidGeminiSendButton(candidate)) continue;
-    return candidate;
+    candidate.geminiComposerRoot = root;
+  }
+
+  return candidates;
+}
+
+function findGeminiComposerRoot(textbox) {
+  if (!(textbox instanceof HTMLElement)) return null;
+
+  const form = textbox.closest("form");
+  if (isUsableGeminiComposerRoot(form, textbox)) return form;
+
+  let ancestor = textbox.parentElement;
+  for (let depth = 0; ancestor && depth < GEMINI_COMPOSER_ROOT_MAX_ANCESTOR_DEPTH; depth += 1) {
+    if (ancestor === form) {
+      ancestor = ancestor.parentElement;
+      continue;
+    }
+    if (isBroadGeminiComposerRoot(ancestor)) break;
+    if (isUsableGeminiComposerRoot(ancestor, textbox)) return ancestor;
+    ancestor = ancestor.parentElement;
   }
 
   return null;
 }
 
-function collectSendButtonCandidates(textbox) {
-  const candidates = [];
-  const seen = new Set();
-  const form = textbox.closest("form");
-  const inputContainer = textbox.closest("form, main, article, message-input, chat-window, bard-sidenav-content");
+function isBroadGeminiComposerRoot(root) {
+  if (!(root instanceof HTMLElement)) return true;
+  if (root === document.body || root === document.documentElement) return true;
 
-  if (form) {
-    for (const selector of SEND_BUTTON_SELECTORS) {
-      collectCandidates(form, selector, candidates, seen);
-    }
+  const tagName = root.tagName.toLowerCase();
+  return tagName === "body" || tagName === "html" || tagName === "main";
+}
+
+function isUsableGeminiComposerRoot(root, textbox) {
+  if (!(root instanceof HTMLElement)) return false;
+  if (isBroadGeminiComposerRoot(root)) return false;
+  if (!root.contains(textbox)) return false;
+
+  const buttons = root.querySelectorAll("button");
+  if (buttons.length === 0 || buttons.length > GEMINI_COMPOSER_ROOT_MAX_BUTTONS) return false;
+
+  for (const button of buttons) {
+    if (scoreGeminiSendButton(button, textbox, root) >= GEMINI_SEND_BUTTON_MIN_SCORE) return true;
   }
 
-  if (inputContainer && inputContainer !== form) {
-    for (const selector of SEND_BUTTON_SELECTORS) {
-      collectCandidates(inputContainer, selector, candidates, seen);
-    }
-  }
-
-  for (const selector of SEND_BUTTON_SELECTORS) {
-    collectCandidates(document, selector, candidates, seen);
-  }
-
-  return candidates;
+  return false;
 }
 
 function includesAny(value, patterns) {
   return patterns.some((pattern) => value.includes(pattern));
 }
 
+function getGeminiButtonMetadata(candidate) {
+  if (!(candidate instanceof HTMLElement)) return "";
+
+  const values = [
+    candidate.getAttribute("aria-label"),
+    candidate.getAttribute("title"),
+    candidate.getAttribute("type"),
+    candidate.getAttribute("name"),
+    candidate.getAttribute("value"),
+    candidate.getAttribute("jslog"),
+    candidate.id,
+    String(candidate.className || "")
+  ];
+
+  for (const attribute of candidate.attributes) {
+    if (attribute.name.startsWith("data-")) values.push(attribute.value);
+  }
+
+  return values.filter(Boolean).join(" ");
+}
+
+function getGeminiButtonJslog(candidate) {
+  if (!(candidate instanceof HTMLElement)) return "";
+  return candidate.getAttribute("jslog") || "";
+}
+
+function hasGeminiSendJslog(candidate) {
+  return getGeminiButtonJslog(candidate).startsWith(GEMINI_SEND_BUTTON_JSLOG_PREFIX);
+}
+
+function hasExcludedGeminiJslog(candidate) {
+  const jslog = getGeminiButtonJslog(candidate);
+  return GEMINI_EXCLUDED_BUTTON_JSLOG_PREFIXES.some((prefix) => jslog.startsWith(prefix));
+}
+
+function isGeminiModePickerButton(candidate) {
+  return candidate.getAttribute("data-test-id") === GEMINI_MODE_PICKER_DATA_TEST_ID;
+}
+
 function isExcludedGeminiButton(candidate) {
   const ariaLabel = candidate.getAttribute("aria-label") || "";
   const normalizedAriaLabel = ariaLabel.toLowerCase();
   const className = String(candidate.className || "");
+  const metadata = getGeminiButtonMetadata(candidate);
 
+  if (hasGeminiSendJslog(candidate)) return false;
+  if (hasExcludedGeminiJslog(candidate)) return true;
+  if (isGeminiModePickerButton(candidate)) return true;
   if (includesAny(ariaLabel, GEMINI_EXCLUDED_BUTTON_ARIA_LABEL_PATTERNS)) return true;
   if (includesAny(normalizedAriaLabel, GEMINI_EXCLUDED_BUTTON_ARIA_LABEL_PATTERNS)) return true;
   if (includesAny(className, GEMINI_EXCLUDED_BUTTON_CLASS_PATTERNS)) return true;
+  if (GEMINI_EXCLUDED_BUTTON_METADATA_PATTERN.test(metadata)) return true;
   if (candidate.hasAttribute("mat-menu-trigger")) return true;
   if (candidate.getAttribute("aria-haspopup") === "menu") return true;
 
   return false;
 }
 
-function isValidGeminiSendButton(candidate) {
+function isSelectableGeminiButton(candidate) {
   if (!(candidate instanceof HTMLButtonElement)) return false;
   if (!isElementVisible(candidate)) return false;
   if (isElementDisabled(candidate)) return false;
   if (isExcludedGeminiButton(candidate)) return false;
+  return true;
+}
 
+function hasGeminiSendAriaLabel(candidate) {
   const ariaLabel = candidate.getAttribute("aria-label") || "";
   const normalizedAriaLabel = ariaLabel.toLowerCase();
   return includesAny(ariaLabel, GEMINI_SEND_ARIA_LABEL_PATTERNS) ||
     includesAny(normalizedAriaLabel, GEMINI_SEND_ARIA_LABEL_LOWERCASE_PATTERNS);
+}
+
+function hasStrongGeminiSendSignal(candidate) {
+  if (!(candidate instanceof HTMLButtonElement)) return false;
+  if (hasGeminiSendJslog(candidate)) return true;
+  if (hasGeminiSendAriaLabel(candidate)) return true;
+  if (candidate.getAttribute("type") === "submit") return true;
+  return GEMINI_SEND_BUTTON_METADATA_PATTERN.test(getGeminiButtonMetadata(candidate));
+}
+
+function isValidGeminiSendButton(candidate) {
+  if (!isSelectableGeminiButton(candidate)) return false;
+
+  return hasGeminiSendJslog(candidate) || hasGeminiSendAriaLabel(candidate);
+}
+
+function getElementRect(element) {
+  if (!(element instanceof HTMLElement)) return null;
+
+  const rect = element.getBoundingClientRect();
+  if (!rect || (rect.width === 0 && rect.height === 0 && rect.left === 0 && rect.top === 0)) return null;
+  return rect;
+}
+
+function scoreGeminiSendButton(candidate, textbox, root) {
+  if (!isSelectableGeminiButton(candidate)) return 0;
+
+  let score = 0;
+  const metadata = getGeminiButtonMetadata(candidate);
+
+  if (root instanceof HTMLElement && root.contains(candidate)) score += 50;
+  if (textbox.closest("form") && textbox.closest("form") === candidate.closest("form")) score += 35;
+  if (hasGeminiSendJslog(candidate)) score += 90;
+  if (GEMINI_SEND_BUTTON_METADATA_PATTERN.test(metadata)) score += 30;
+  if (candidate.getAttribute("type") === "submit") score += 25;
+  if (hasGeminiSendAriaLabel(candidate)) score += 45;
+  score += 20;
+
+  if (candidate.querySelector("svg")) score += 8;
+
+  const textboxRect = getElementRect(textbox);
+  const buttonRect = getElementRect(candidate);
+  const rootRect = getElementRect(root);
+
+  if (textboxRect && buttonRect) {
+    const textboxCenterX = textboxRect.left + textboxRect.width / 2;
+    const textboxCenterY = textboxRect.top + textboxRect.height / 2;
+    const buttonCenterX = buttonRect.left + buttonRect.width / 2;
+    const buttonCenterY = buttonRect.top + buttonRect.height / 2;
+    const distance = Math.hypot(buttonCenterX - textboxCenterX, buttonCenterY - textboxCenterY);
+
+    score += Math.max(0, 12 - Math.min(distance / 40, 12));
+    if (buttonCenterY >= textboxCenterY || buttonCenterX >= textboxCenterX) score += 5;
+  }
+
+  if (rootRect && buttonRect) {
+    const buttonCenterX = buttonRect.left + buttonRect.width / 2;
+    const buttonCenterY = buttonRect.top + buttonRect.height / 2;
+    const rootRightBias = (buttonCenterX - rootRect.left) / Math.max(rootRect.width, 1);
+    const rootBottomBias = (buttonCenterY - rootRect.top) / Math.max(rootRect.height, 1);
+
+    if (rootRightBias > 0.6) score += 4;
+    if (rootBottomBias > 0.55) score += 4;
+  }
+
+  return score;
 }
 
 function describeElement(element) {
@@ -411,7 +630,9 @@ function logSendButtonCandidates(textbox, candidates, selectedButton) {
   candidates.forEach((candidate, index) => {
     console.log(`candidate ${index}`, describeElement(candidate), {
       visible: isElementVisible(candidate),
-      validGeminiSendButton: isValidGeminiSendButton(candidate)
+      validGeminiSendButton: isValidGeminiSendButton(candidate),
+      score: scoreGeminiSendButton(candidate, textbox, candidate.geminiComposerRoot),
+      strongSendSignal: hasStrongGeminiSendSignal(candidate)
     });
   });
   console.log("selectedButton", describeElement(selectedButton));
@@ -446,9 +667,7 @@ function sendMessageByButton(textbox) {
   const shouldLog = DEBUG_LOG_GEMINI_SEND_BUTTON_CANDIDATES &&
     location.hostname === "gemini.google.com";
   const candidates = shouldLog ? collectSendButtonCandidates(textbox) : null;
-  const button = candidates
-    ? candidates.find((candidate) => isValidGeminiSendButton(candidate)) ?? null
-    : findSendButton(textbox);
+  const button = findSendButton(textbox);
 
   if (candidates) {
     logSendButtonCandidates(textbox, candidates, button);

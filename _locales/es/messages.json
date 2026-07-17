@@ -6,7 +6,7 @@
     "message": "Gemini Enter Key Control"
   },
   "appDescription": {
-    "message": "Evita envíos accidentales cuando querías insertar un salto de línea en chats de Gemini y NotebookLM."
+    "message": "Reduce los envíos accidentales con Enter en los chats de Gemini y Gemini Notebook, anteriormente NotebookLM."
   },
   "enableEnterControl": {
     "message": "Activar control de Enter"
@@ -48,6 +48,6 @@
     "message": "Ver extensiones de Chrome"
   },
   "sidePanelNotice": {
-    "message": "Esta extensión funciona en gemini.google.com y notebooklm.google.com. No se aplica al panel lateral de Gemini integrado en Chrome."
+    "message": "Esta extensión funciona en gemini.google.com y notebooklm.google.com. No se aplica al panel lateral de Gemini integrado en el navegador."
   }
 }

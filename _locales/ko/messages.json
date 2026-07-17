@@ -6,7 +6,7 @@
     "message": "Gemini Enter Key Control"
   },
   "appDescription": {
-    "message": "Gemini와 NotebookLM 채팅에서 줄바꿈하려다 실수로 전송하는 일을 방지합니다."
+    "message": "Gemini와 Gemini Notebook(이전 NotebookLM) 채팅에서 Enter 키로 인한 실수 전송을 줄입니다."
   },
   "enableEnterControl": {
     "message": "Enter 제어 활성화"
@@ -48,6 +48,6 @@
     "message": "Chrome 확장 보기"
   },
   "sidePanelNotice": {
-    "message": "이 확장 프로그램은 gemini.google.com 및 notebooklm.google.com에서 작동합니다. Chrome에 내장된 Gemini 사이드 패널에는 적용되지 않습니다."
+    "message": "이 확장 프로그램은 gemini.google.com 및 notebooklm.google.com에서 작동합니다. 브라우저에 내장된 Gemini 사이드 패널에는 적용되지 않습니다."
   }
 }

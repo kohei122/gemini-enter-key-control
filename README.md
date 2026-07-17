@@ -1,6 +1,6 @@
 # Gemini Enter Key Control (by marusin)
 
-A Chrome extension that controls Enter key behavior in Gemini and NotebookLM chat.
+A Chrome extension that controls Enter key behavior in Gemini and Gemini Notebook, formerly NotebookLM, chat.
 
 ## Features
 
@@ -18,7 +18,7 @@ A Chrome extension that controls Enter key behavior in Gemini and NotebookLM cha
 
 - No data collection  
 - No external communication  
-- Works only on Gemini and NotebookLM
+- Works only on Gemini and Gemini Notebook, formerly NotebookLM
 
 ## Installation
 
@@ -27,6 +27,10 @@ A Chrome extension that controls Enter key behavior in Gemini and NotebookLM cha
 3. Start using Gemini with improved input behavior  
 
 ## Changelog
+
+### 1.4.1
+- Updated NotebookLM references to Gemini Notebook, formerly NotebookLM.
+- Updated app descriptions, README, and multilingual UI text.
 
 ### 1.4.0
 - Improved Gemini send button detection based on the input/composer DOM structure.
@@ -42,7 +46,7 @@ A Chrome extension that controls Enter key behavior in Gemini and NotebookLM cha
 ### 1.3.0
 - Improved IME handling for Japanese, Chinese, Korean, and other composition-based input methods.
 - Fixed duplicate content script initialization to prevent repeated newline handling.
-- Added a clearer note that Chrome's built-in Gemini side panel is not supported.
+- Added a clearer note that the browser's built-in Gemini side panel is not supported.
 
 ### 1.2.2
 - Added Spanish localization
@@ -57,9 +61,9 @@ A Chrome extension that controls Enter key behavior in Gemini and NotebookLM cha
 - Fixed Gemini send button detection when the sidebar is open
 
 ### 1.2.0
-- Added support for the NotebookLM chat input
-- Improved Enter key handling for NotebookLM
-- Kept NotebookLM source search fields outside the extension's control
+- Added support for the Gemini Notebook, formerly NotebookLM, chat input
+- Improved Enter key handling for Gemini Notebook, formerly NotebookLM
+- Kept Gemini Notebook, formerly NotebookLM, source search fields outside the extension's control
 
 ### 1.1.5
 - Updated popup description text

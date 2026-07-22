@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "default_locale": "en",
   "name": "__MSG_appName__",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "__MSG_appDescription__",
   "icons": {
     "16": "icon16.png",
@@ -26,8 +26,19 @@
   "content_scripts": [
     {
       "matches": [
+        "https://labs.google/fx/*"
+      ],
+      "js": [
+        "flow_main_world.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
         "https://gemini.google.com/*",
-        "https://notebooklm.google.com/*"
+        "https://notebooklm.google.com/*",
+        "https://labs.google/fx/*"
       ],
       "js": [
         "content_script.js"

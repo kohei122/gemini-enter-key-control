@@ -1,6 +1,6 @@
 # Gemini Enter Key Control (by marusin)
 
-A Chrome extension that controls Enter key behavior in Gemini and Gemini Notebook, formerly NotebookLM, chat.
+A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, formerly NotebookLM, and Google Flow.
 
 ## Features
 
@@ -18,7 +18,7 @@ A Chrome extension that controls Enter key behavior in Gemini and Gemini Noteboo
 
 - No data collection  
 - No external communication  
-- Works only on Gemini and Gemini Notebook, formerly NotebookLM
+- Works only on Gemini, Gemini Notebook, formerly NotebookLM, and Google Flow
 
 ## Installation
 
@@ -27,6 +27,14 @@ A Chrome extension that controls Enter key behavior in Gemini and Gemini Noteboo
 3. Start using Gemini with improved input behavior  
 
 ## Changelog
+
+### 1.5.0
+- Added Google Flow support.
+- On Windows, Google Flow supports Shift+Enter, Ctrl+Enter, both-key mode, and Shift+Ctrl+Enter sending modes.
+- Plain Enter inserts a newline, and focus returns to the prompt editor after sending.
+- Send shortcuts are blocked during generation so they do not activate the stop button.
+- Command+Enter and Shift+Command+Enter are currently unsupported in Google Flow on macOS. This limitation does not affect the existing Mac shortcuts on Gemini.
+- Detects Google Flow inputs and generation buttons from nearby DOM structure without depending on UI language labels.
 
 ### 1.4.1
 - Updated NotebookLM references to Gemini Notebook, formerly NotebookLM.

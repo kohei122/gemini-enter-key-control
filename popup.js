@@ -8,6 +8,20 @@ const OTHER_EXTENSIONS_URL = "https://chromewebstore.google.com/search/(by%20mar
 const CONTENT_SCRIPT_FILE = "content_script.js";
 // Local verification only. Always keep this false before publishing.
 const FORCE_MAC_FOR_DEBUG = false;
+// Temporary real-browser diagnostics. Set this back to false before publishing.
+const DEBUG_LOG_FLOW_SETTINGS = false;
+
+function logStoredSettings(message, details = {}) {
+  if (!DEBUG_LOG_FLOW_SETTINGS) return;
+
+  chrome.storage.local.get(["enabled", "mode"], (stored) => {
+    console.debug("[Gemini Enter Key Control] Popup", message, {
+      ...details,
+      stored,
+      isMacPlatform
+    });
+  });
+}
 
 function sanitizeEnabled(enabled) {
   if (enabled === true || enabled === false) return enabled;
@@ -47,6 +61,7 @@ const otherExtensionsLink = document.getElementById("other-extensions-link");
 const languageSettingLabel = document.getElementById("language-setting-label");
 const languageSelect = document.getElementById("language-select");
 const sidePanelNotice = document.getElementById("side-panel-notice");
+const flowShortcutNotice = document.getElementById("flow-shortcut-notice");
 const i18nElements = document.querySelectorAll("[data-i18n]");
 let isMacPlatform = false;
 
@@ -219,11 +234,37 @@ function setupOtherExtensionsLink() {
 function isTargetTabUrl(url) {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "https:" &&
-      (parsed.hostname === "gemini.google.com" || parsed.hostname === "notebooklm.google.com");
+    if (parsed.protocol !== "https:") return false;
+    if (parsed.hostname === "gemini.google.com" || parsed.hostname === "notebooklm.google.com") return true;
+    return parsed.hostname === "labs.google" && parsed.pathname.includes("/tools/flow/");
   } catch {
     return false;
   }
+}
+
+function isGoogleFlowUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" &&
+      parsed.hostname === "labs.google" &&
+      parsed.pathname.includes("/tools/flow/");
+  } catch {
+    return false;
+  }
+}
+
+function shouldShowFlowShortcutNotice(url, isMac) {
+  return isMac && isGoogleFlowUrl(url);
+}
+
+function updateFlowShortcutNotice() {
+  if (!flowShortcutNotice || !chrome.tabs) return;
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (chrome.runtime.lastError) return;
+    const shouldShowMacNotice = shouldShowFlowShortcutNotice(tabs[0]?.url, isMacPlatform);
+    flowShortcutNotice.hidden = !shouldShowMacNotice;
+  });
 }
 
 function injectContentScriptIntoActiveTab() {
@@ -267,15 +308,27 @@ async function initializePopup() {
 
     toggle.checked = settings.enabled;
     renderModeOptions(isMac, settings.mode, forcedMessages);
+    updateFlowShortcutNotice();
 
-    chrome.storage.local.set(settings);
+    if (DEBUG_LOG_FLOW_SETTINGS) {
+      console.debug("[Gemini Enter Key Control] Popup settings loaded", {
+        rawSettings: stored,
+        normalizedSettings: settings,
+        isMacPlatform: isMac
+      });
+    }
+    chrome.storage.local.set(settings, () => {
+      logStoredSettings("settings stored after initialization");
+    });
   });
 }
 
 initializePopup();
 
 toggle.addEventListener("change", () => {
-  chrome.storage.local.set({ enabled: sanitizeEnabled(toggle.checked) });
+  chrome.storage.local.set({ enabled: sanitizeEnabled(toggle.checked) }, () => {
+    logStoredSettings("enabled setting saved");
+  });
 });
 
 if (modeOptions) {
@@ -283,6 +336,13 @@ if (modeOptions) {
     const radio = event.target;
     if (!(radio instanceof HTMLInputElement)) return;
     if (radio.name !== "mode" || !radio.checked) return;
-    chrome.storage.local.set({ mode: sanitizeModeForPlatform(radio.value, isMacPlatform) });
+    const mode = sanitizeModeForPlatform(radio.value, isMacPlatform);
+    updateFlowShortcutNotice();
+    chrome.storage.local.set({ mode }, () => {
+      logStoredSettings("mode setting saved", {
+        selectedRadioValue: radio.value,
+        normalizedMode: mode
+      });
+    });
   });
 }

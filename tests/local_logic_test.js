@@ -45,7 +45,26 @@ class ElementMock extends EventTargetMock {
   append(...children) { for (const child of children) { child.parentElement = this; this.children.push(child); } }
   contains(node) { return node === this || this.children.some((child) => child.contains(node)); }
   matches(selector) {
+    const selectors = selector.split(",").map((item) => item.trim());
+    if (selectors.length > 1) return selectors.some((item) => this.matches(item));
+    const classes = String(this.className || "").split(/\s+/).filter(Boolean);
     if (selector === "textarea") return this.tagName === "TEXTAREA";
+    if (selector === "textarea.query-box-input") {
+      return this.tagName === "TEXTAREA" && classes.includes("query-box-input");
+    }
+    if (selector === "textarea.query-box-textarea") {
+      return this.tagName === "TEXTAREA" && classes.includes("query-box-textarea");
+    }
+    if (selector === 'textarea[formcontrolname="discoverSourcesQuery"]') {
+      return this.tagName === "TEXTAREA" &&
+        this.getAttribute("formcontrolname") === "discoverSourcesQuery";
+    }
+    if (selector === 'button.submit-button[type="submit"]') {
+      return this.tagName === "BUTTON" &&
+        classes.includes("submit-button") &&
+        this.getAttribute("type") === "submit";
+    }
+    if (selector === ".actions-enter-button") return classes.includes("actions-enter-button");
     if (selector.includes("data-slate-editor")) {
       return this.getAttribute("data-slate-editor") === "true" &&
         this.getAttribute("role") === "textbox" &&
@@ -66,7 +85,7 @@ class ElementMock extends EventTargetMock {
     const visit = (node) => {
       for (const child of node.children) {
         if (selector === "button" && child instanceof ButtonMock) results.push(child);
-        if (selector.includes("data-slate-editor") && child.matches(selector)) results.push(child);
+        if (selector !== "button" && child.matches(selector)) results.push(child);
         visit(child);
       }
     };
@@ -79,8 +98,26 @@ class ElementMock extends EventTargetMock {
   focus() { activeDocument.activeElement = this; }
 }
 
-class ButtonMock extends ElementMock { constructor() { super("button"); } }
-class TextareaMock extends ElementMock { constructor() { super("textarea"); this.value = ""; } }
+class ButtonMock extends ElementMock {
+  constructor() {
+    super("button");
+    this.clickCount = 0;
+  }
+  click() { this.clickCount += 1; }
+}
+class TextareaMock extends ElementMock {
+  constructor() {
+    super("textarea");
+    this.value = "";
+    this.selectionStart = 0;
+    this.selectionEnd = 0;
+  }
+  setRangeText(replacement, start, end) {
+    this.value = `${this.value.slice(0, start)}${replacement}${this.value.slice(end)}`;
+    this.selectionStart = start + replacement.length;
+    this.selectionEnd = this.selectionStart;
+  }
+}
 class CustomEventMock {
   constructor(type, init = {}) { this.type = type; this.detail = init.detail; this.defaultPrevented = false; }
 }
@@ -321,7 +358,8 @@ globalThis.__test = {
   shouldSendByMode, isPlainFlowEnter, isSupportedFlowSendShortcut,
   isFlowTrustedNativeReactShortcut, findFlowGenerateButton,
   findFlowGenerationStopButton, findSendButton,
-  inspectFlowTrustedKeyHandoffAfterDelay, restoreFlowTextboxFocus, handleKey
+  inspectFlowTrustedKeyHandoffAfterDelay, restoreFlowTextboxFocus, handleKey,
+  isNotebookHost, getNotebookLmChatTextarea, findNotebookLmSendButton
 };
 globalThis.__setTestSettings = (mode, isMac) => {
   rawStoredSettings = { enabled: true, mode };
@@ -468,6 +506,148 @@ globalThis.__setTestSettings = (mode, isMac) => {
   geminiSend.setAttribute("jslog", "173899;track:generic_click");
   geminiRoot.append(geminiTextbox, upload, geminiSend);
   assert.strictEqual(api.findSendButton(geminiTextbox), geminiSend);
+
+  const makeNotebookComposer = () => {
+    const form = new ElementMock("form");
+    const textarea = new TextareaMock();
+    textarea.className = "query-box-input";
+    const button = makeButton("send");
+    button.className = "submit-button";
+    button.setAttribute("type", "submit");
+    form.append(textarea, button);
+    context.document.body.append(form);
+    return { form, textarea, button };
+  };
+
+  assert.strictEqual(api.isNotebookHost("notebook.google.com"), true);
+  assert.strictEqual(api.isNotebookHost("notebooklm.google.com"), true);
+  assert.strictEqual(api.isNotebookHost("evil-notebook.google.com"), false);
+  assert.strictEqual(api.isNotebookHost("notebook.google.com.evil.example"), false);
+
+  const notebook = makeNotebookComposer();
+  for (const hostname of ["notebook.google.com", "notebooklm.google.com"]) {
+    context.location.hostname = hostname;
+    assert.strictEqual(api.getNotebookLmChatTextarea(notebook.textarea), notebook.textarea);
+    assert.strictEqual(api.findNotebookLmSendButton(notebook.textarea), notebook.button);
+  }
+  context.location.hostname = "example.com";
+  assert.strictEqual(api.getNotebookLmChatTextarea(notebook.textarea), null);
+
+  context.location.hostname = "notebook.google.com";
+  const detachedChat = new TextareaMock();
+  detachedChat.className = "query-box-input";
+  assert.strictEqual(api.getNotebookLmChatTextarea(detachedChat), detachedChat);
+  assert.strictEqual(api.findNotebookLmSendButton(detachedChat), null);
+  const sourceSearch = new TextareaMock();
+  sourceSearch.className = "query-box-input query-box-textarea";
+  assert.strictEqual(api.getNotebookLmChatTextarea(sourceSearch), null);
+  const discoverSources = new TextareaMock();
+  discoverSources.className = "query-box-input";
+  discoverSources.setAttribute("formcontrolname", "discoverSourcesQuery");
+  assert.strictEqual(api.getNotebookLmChatTextarea(discoverSources), null);
+
+  notebook.button.className = "submit-button actions-enter-button";
+  assert.strictEqual(api.findNotebookLmSendButton(notebook.textarea), null);
+  notebook.button.className = "submit-button";
+  notebook.button.disabled = true;
+  assert.strictEqual(api.findNotebookLmSendButton(notebook.textarea), null);
+  notebook.button.disabled = false;
+  notebook.button.setAttribute("aria-disabled", "true");
+  assert.strictEqual(api.findNotebookLmSendButton(notebook.textarea), null);
+  notebook.button.removeAttribute("aria-disabled");
+  notebook.button.rect.width = 0;
+  assert.strictEqual(api.findNotebookLmSendButton(notebook.textarea), null);
+  notebook.button.rect.width = 100;
+  const secondButton = makeButton("send two");
+  secondButton.className = "submit-button";
+  secondButton.setAttribute("type", "submit");
+  notebook.form.append(secondButton);
+  assert.strictEqual(api.findNotebookLmSendButton(notebook.textarea), null);
+
+  const notebookKeys = makeNotebookComposer();
+  const notebookEvent = (modifiers = {}, overrides = {}) => {
+    let prevented = 0;
+    let propagationStops = 0;
+    const event = {
+      target: notebookKeys.textarea,
+      key: "Enter",
+      code: "Enter",
+      keyCode: 13,
+      isTrusted: true,
+      isComposing: false,
+      repeat: false,
+      shiftKey: false,
+      ctrlKey: false,
+      metaKey: false,
+      altKey: false,
+      preventDefault() { prevented += 1; },
+      stopPropagation() { propagationStops += 1; },
+      stopImmediatePropagation() { propagationStops += 1; },
+      ...modifiers,
+      ...overrides
+    };
+    return {
+      event,
+      get prevented() { return prevented; },
+      get propagationStops() { return propagationStops; }
+    };
+  };
+  const expectNotebookSend = (mode, modifiers, isMac = false) => {
+    context.__setTestSettings(mode, isMac);
+    const before = notebookKeys.button.clickCount;
+    const captured = notebookEvent(modifiers);
+    api.handleKey(captured.event);
+    assert.strictEqual(notebookKeys.button.clickCount, before + 1, `${mode} should send`);
+    assert.strictEqual(captured.prevented, 1);
+    assert.strictEqual(captured.propagationStops, 1);
+  };
+  expectNotebookSend("shift", { shiftKey: true });
+  expectNotebookSend("ctrl", { ctrlKey: true });
+  expectNotebookSend("cmd", { metaKey: true }, true);
+  expectNotebookSend("both", { shiftKey: true });
+  expectNotebookSend("both", { ctrlKey: true });
+  expectNotebookSend("both", { metaKey: true }, true);
+  expectNotebookSend("combo", { shiftKey: true, ctrlKey: true });
+  expectNotebookSend("shiftCmd", { shiftKey: true, metaKey: true }, true);
+
+  context.__setTestSettings("shift", false);
+  notebookKeys.textarea.value = "prompt";
+  notebookKeys.textarea.selectionStart = notebookKeys.textarea.value.length;
+  notebookKeys.textarea.selectionEnd = notebookKeys.textarea.value.length;
+  const plainEnter = notebookEvent();
+  api.handleKey(plainEnter.event);
+  assert.strictEqual(notebookKeys.textarea.value, "prompt\n");
+  const clicksBeforeNonSelected = notebookKeys.button.clickCount;
+  const nonSelected = notebookEvent({ ctrlKey: true });
+  api.handleKey(nonSelected.event);
+  assert.strictEqual(notebookKeys.button.clickCount, clicksBeforeNonSelected);
+  const altEnter = notebookEvent({ altKey: true });
+  api.handleKey(altEnter.event);
+  assert.strictEqual(notebookKeys.button.clickCount, clicksBeforeNonSelected);
+
+  const valueBeforeRepeat = notebookKeys.textarea.value;
+  const repeated = notebookEvent({ shiftKey: true }, { repeat: true });
+  api.handleKey(repeated.event);
+  assert.strictEqual(notebookKeys.button.clickCount, clicksBeforeNonSelected);
+  assert.strictEqual(notebookKeys.textarea.value, valueBeforeRepeat);
+  assert.strictEqual(repeated.prevented, 1);
+
+  for (const overrides of [
+    { isComposing: true },
+    { keyCode: 229 }
+  ]) {
+    const beforeValue = notebookKeys.textarea.value;
+    const beforeClicks = notebookKeys.button.clickCount;
+    const composing = notebookEvent({ shiftKey: true }, overrides);
+    api.handleKey(composing.event);
+    assert.strictEqual(notebookKeys.textarea.value, beforeValue);
+    assert.strictEqual(notebookKeys.button.clickCount, beforeClicks);
+    assert.strictEqual(composing.prevented, 0);
+  }
+  context.document.dispatchEvent({ type: "compositionend", target: notebookKeys.textarea });
+  const graceWindow = notebookEvent({ shiftKey: true });
+  api.handleKey(graceWindow.event);
+  assert.strictEqual(graceWindow.prevented, 0);
 }
 
 function verifyManifestScope() {
@@ -475,9 +655,13 @@ function verifyManifestScope() {
   const mainWorld = manifest.content_scripts.find((entry) => entry.world === "MAIN");
   assert.deepStrictEqual(mainWorld.matches, ["https://labs.google/fx/*"]);
   assert.strictEqual(mainWorld.run_at, "document_start");
+  assert(!mainWorld.matches.some((match) => match.includes("notebook")));
   const normalWorld = manifest.content_scripts.find((entry) => entry.js.includes("content_script.js"));
   assert(normalWorld.matches.includes("https://gemini.google.com/*"));
+  assert(normalWorld.matches.includes("https://notebook.google.com/*"));
   assert(normalWorld.matches.includes("https://notebooklm.google.com/*"));
+  assert.strictEqual(manifest.version, "1.5.1");
+  assert.strictEqual(Object.hasOwn(manifest, "host_permissions"), false);
   const nonFlowMainWorld = loadMainBridge("/fx/ja/tools/imagefx");
   assert.strictEqual(nonFlowMainWorld.token, null);
 }
@@ -529,15 +713,39 @@ function verifyLocalesAndLanguageIndependentFlowSignals() {
   };
   const popupLogicContext = vm.createContext({ URL });
   vm.runInContext(`
+    ${extractFunction("isNotebookHost")}
+    ${extractFunction("isTargetTabUrl")}
     ${extractFunction("isGoogleFlowUrl")}
     ${extractFunction("shouldShowFlowShortcutNotice")}
-    globalThis.popupLogic = { isGoogleFlowUrl, shouldShowFlowShortcutNotice };
+    globalThis.popupLogic = {
+      isNotebookHost, isTargetTabUrl, isGoogleFlowUrl, shouldShowFlowShortcutNotice
+    };
   `, popupLogicContext);
+  for (const url of [
+    "https://notebook.google.com/",
+    "https://notebook.google.com",
+    "https://notebook.google.com/notebook/97d2c3da-59b8-4447-8d4c-f0d78876e95e",
+    "https://notebook.google.com/notebook/abc?foo=bar",
+    "https://notebooklm.google.com/",
+    "https://notebooklm.google.com",
+    "https://notebooklm.google.com/notebook/abc"
+  ]) {
+    assert.strictEqual(popupLogicContext.popupLogic.isTargetTabUrl(url), true, url);
+  }
+  for (const url of [
+    "http://notebook.google.com/",
+    "https://notebook.google.com.evil.example/",
+    "https://evil-notebook.google.com/",
+    "https://notebooklm.google.com.evil.example/"
+  ]) {
+    assert.strictEqual(popupLogicContext.popupLogic.isTargetTabUrl(url), false, url);
+  }
   const flowUrl = "https://labs.google/fx/ja/tools/flow/project/test";
   assert.strictEqual(popupLogicContext.popupLogic.shouldShowFlowShortcutNotice(flowUrl, true), true);
   assert.strictEqual(popupLogicContext.popupLogic.shouldShowFlowShortcutNotice(flowUrl, false), false);
   for (const url of [
     "https://gemini.google.com/app",
+    "https://notebook.google.com/notebook/test",
     "https://notebooklm.google.com/notebook/test",
     "https://labs.google/fx/ja/tools/imagefx"
   ]) {
@@ -560,5 +768,5 @@ Promise.resolve()
   .then(verifyContentLogic)
   .then(verifyManifestScope)
   .then(verifyLocalesAndLanguageIndependentFlowSignals)
-  .then(() => console.log("Local Flow, Gemini, and manifest regression verification: PASS"))
+  .then(() => console.log("Local Flow, Gemini, Notebook, and manifest regression verification: PASS"))
   .catch((error) => { console.error(error); process.exitCode = 1; });

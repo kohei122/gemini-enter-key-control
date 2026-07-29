@@ -7,6 +7,7 @@ A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, 
 - Press Enter to insert a newline  
 - Press Shift + Enter to send your message  
 - Supports Ctrl, Cmd, and combined send key modes
+- Supports Gemini Notebook on both `notebook.google.com` and the legacy `notebooklm.google.com` domain
 
 ## Benefits
 
@@ -27,6 +28,10 @@ A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, 
 3. Start using Gemini with improved input behavior  
 
 ## Changelog
+
+### 1.5.1
+- Added support for the new Gemini Notebook domain, `notebook.google.com`.
+- Kept compatibility with the legacy `notebooklm.google.com` domain during the transition.
 
 ### 1.5.0
 - Added Google Flow support.

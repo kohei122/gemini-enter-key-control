@@ -231,11 +231,16 @@ function setupOtherExtensionsLink() {
   });
 }
 
+function isNotebookHost(hostname) {
+  return hostname === "notebook.google.com" ||
+    hostname === "notebooklm.google.com";
+}
+
 function isTargetTabUrl(url) {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:") return false;
-    if (parsed.hostname === "gemini.google.com" || parsed.hostname === "notebooklm.google.com") return true;
+    if (parsed.hostname === "gemini.google.com" || isNotebookHost(parsed.hostname)) return true;
     return parsed.hostname === "labs.google" && parsed.pathname.includes("/tools/flow/");
   } catch {
     return false;

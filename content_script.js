@@ -3,7 +3,7 @@
 const DEBUG_LOG_FLOW_ACTIONS = false;
 const INIT_KEY = "__geminiEnterKeyControlInitialized";
 const INIT_VERSION_KEY = "__geminiEnterKeyControlInitVersion";
-const INIT_VERSION = "1.5.0-flow-trusted-native-react-1";
+const INIT_VERSION = "1.5.1-notebook-domain-1";
 const INIT_MARKER_ATTRIBUTE = "data-gemini-enter-key-control-initialized";
 if (window[INIT_KEY] || document.documentElement?.hasAttribute(INIT_MARKER_ATTRIBUTE)) {
   if (DEBUG_LOG_FLOW_ACTIONS &&
@@ -427,8 +427,13 @@ function getFlowTextbox(target) {
   return textbox;
 }
 
+function isNotebookHost(hostname) {
+  return hostname === "notebook.google.com" ||
+    hostname === "notebooklm.google.com";
+}
+
 function getNotebookLmChatTextarea(target) {
-  if (location.hostname !== "notebooklm.google.com") return null;
+  if (!isNotebookHost(location.hostname)) return null;
   if (!target) return null;
 
   const element = target instanceof Element ? target : target.parentElement;
@@ -1992,6 +1997,11 @@ function handleKey(event) {
   const isSend = shouldSendByMode(mode, isShift, isCtrl, isAlt, isMeta);
 
   if (notebookLmTextarea) {
+    if (event.repeat) {
+      stopHandledEnterEvent(event);
+      return;
+    }
+
     if (isSend) {
       stopHandledEnterEvent(event);
       sendNotebookLmMessage(notebookLmTextarea);

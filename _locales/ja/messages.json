@@ -6,7 +6,7 @@
     "message": "Gemini Enter Key Control"
   },
   "appDescription": {
-    "message": "Gemini / Gemini Notebook（旧 NotebookLM） / Google Flow / Google Chat（単独Web版・Gmail内）で、Enterキーによる誤送信を減らします。"
+    "message": "Gemini / Gemini Notebook（旧 NotebookLM） / Google Flow / Google Chat Web版 / Gmail内Google Chatで、Enterキーによる誤送信を減らします。"
   },
   "enableEnterControl": {
     "message": "有効化"
@@ -48,7 +48,7 @@
     "message": "Chrome拡張を見る"
   },
   "sidePanelNotice": {
-    "message": "Gemini / Gemini Notebook（旧 NotebookLM） / Google Flow / Google Chat単独Web版 / Gmail内Google Chatに対応。ブラウザ内蔵のGeminiサイドパネルには適用されません。"
+    "message": "Gemini / Gemini Notebook（旧 NotebookLM） / Google Flow / Google Chat Web版 / Gmail内Google Chatに対応。ブラウザ内蔵のGeminiサイドパネルとGoogle Meet内チャットは対象外です。"
   },
   "flowShortcutNotice": {
     "message": "Google Flowでは、Commandキーを使った送信には現在対応していません。"

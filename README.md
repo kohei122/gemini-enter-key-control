@@ -1,6 +1,6 @@
 # Gemini Enter Key Control (by marusin)
 
-A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, formerly NotebookLM, Google Flow, and Google Chat, including Chat inside Gmail.
+A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, formerly NotebookLM, Google Flow, Google Chat on the web, and Google Chat inside Gmail.
 
 ## Features
 
@@ -8,7 +8,7 @@ A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, 
 - Press Shift + Enter to send your message  
 - Supports Ctrl, Cmd, and combined send key modes
 - Supports Gemini Notebook on both `notebook.google.com` and the legacy `notebooklm.google.com` domain
-- Supports Google Chat at `chat.google.com`, including the Chat frame inside Gmail
+- Supports the Google Chat web app and Google Chat inside Gmail
 
 ## Google Chat
 
@@ -17,6 +17,7 @@ A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, 
 - Supports regular direct messages, group direct messages, and standard space composers that use the supported composer structure.
 - Supports Google Chat loaded inside Gmail through its `chat.google.com` frame.
 - Gmail email composition, reply, search, subject, and forwarding fields remain outside the extension's scope.
+- Google Meet chat is currently not supported.
 - Detects the editor and send controls from stable DOM attributes rather than translated UI labels.
 - Advanced message editing and rich-text-specific behavior are not separately guaranteed.
 
@@ -47,7 +48,7 @@ A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, 
 - Improved compatibility and stability.
 
 ### 1.6.0
-- Added support for standalone Google Chat at `chat.google.com`.
+- Added support for the Google Chat web app at `chat.google.com`.
 - Plain Enter inserts a newline, and the selected shortcut sends the message.
 - Supports regular direct messages, group direct messages, and standard space composers.
 - Added safeguards for IME input, suggestion UI, and repeated key events.

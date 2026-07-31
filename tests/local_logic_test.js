@@ -1153,14 +1153,51 @@ function verifyLocalesAndLanguageIndependentFlowSignals() {
     es: "Actualmente, Google Flow no admite atajos de envío con la tecla Command.",
     pt_BR: "No momento, o Google Flow não oferece suporte a atalhos de envio com a tecla Command."
   };
-  const expectedGmailSupportPhrases = {
-    ja: "Gmail内Google Chatに対応",
-    en: "including Google Chat inside Gmail",
-    ko: "Gmail 내 Google Chat을 지원",
-    zh_CN: "Gmail 中的 Google Chat",
-    zh_TW: "Gmail 中的 Google Chat",
-    es: "incluido Google Chat en Gmail",
-    pt_BR: "incluindo o Google Chat no Gmail"
+  const expectedGoogleChatWording = {
+    ja: {
+      web: "Google Chat Web版",
+      gmail: "Gmail内Google Chat",
+      meet: "Google Meet内チャット"
+    },
+    en: {
+      web: "Google Chat on the web",
+      gmail: "Google Chat inside Gmail",
+      meet: "Google Meet chat"
+    },
+    ko: {
+      web: "Google Chat 웹 버전",
+      gmail: "Gmail의 Google Chat",
+      meet: "Google Meet 채팅"
+    },
+    zh_CN: {
+      web: "Google Chat 网页版",
+      gmail: "Gmail 内置的 Google Chat",
+      meet: "Google Meet 内的聊天"
+    },
+    zh_TW: {
+      web: "Google Chat 網頁版",
+      gmail: "Gmail 內建的 Google Chat",
+      meet: "Google Meet 內的聊天"
+    },
+    es: {
+      web: "Google Chat en la Web",
+      gmail: "Google Chat dentro de Gmail",
+      meet: "chat de Google Meet"
+    },
+    pt_BR: {
+      web: "Google Chat na Web",
+      gmail: "Google Chat dentro do Gmail",
+      meet: "chat do Google Meet"
+    }
+  };
+  const forbiddenGoogleChatWording = {
+    ja: ["単独" + "Web版", "単独" + "ウェブ版"],
+    en: [["standalone", "Google Chat"].join(" ")],
+    ko: ["단독" + " 웹 버전", "독립형" + " Google Chat"],
+    zh_CN: ["独立" + "网页版", "独立版" + " Google Chat"],
+    zh_TW: ["獨立" + "網頁版", "獨立版" + " Google Chat"],
+    es: ["versión web " + "independiente"],
+    pt_BR: ["versão Web " + "independente", "versão web " + "independente"]
   };
   let expectedKeys = null;
   for (const localeName of localeNames) {
@@ -1174,9 +1211,16 @@ function verifyLocalesAndLanguageIndependentFlowSignals() {
     assert.strictEqual(messages.flowShortcutNotice.message, expectedNotices[localeName]);
     assert(messages.appDescription.message.includes("Google Chat"));
     assert(messages.sidePanelNotice.message.includes("Google Chat"));
-    assert(messages.sidePanelNotice.message.includes(
-      expectedGmailSupportPhrases[localeName]
-    ));
+    const combinedMessages = Object.values(messages)
+      .map((entry) => entry.message)
+      .join("\n");
+    const expected = expectedGoogleChatWording[localeName];
+    assert(combinedMessages.includes(expected.web));
+    assert(combinedMessages.includes(expected.gmail));
+    assert(combinedMessages.includes(expected.meet));
+    for (const forbidden of forbiddenGoogleChatWording[localeName]) {
+      assert(!combinedMessages.includes(forbidden), `${localeName}: ${forbidden}`);
+    }
   }
 
   const popupHtml = fs.readFileSync(path.join(ROOT, "popup.html"), "utf8");
@@ -1194,6 +1238,9 @@ function verifyLocalesAndLanguageIndependentFlowSignals() {
   const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
   assert(readme.includes("### 1.6.1"));
   assert(readme.includes("Added support for Google Chat inside Gmail."));
+  assert(readme.includes("Google Chat web app"));
+  assert(readme.includes("Google Meet chat is currently not supported."));
+  assert(!readme.includes(["standalone", "Google Chat"].join(" ")));
   const extractFunction = (name) => {
     const start = popupSource.indexOf(`function ${name}(`);
     assert(start >= 0, `popup function not found: ${name}`);

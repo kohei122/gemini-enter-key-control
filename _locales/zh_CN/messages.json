@@ -6,7 +6,7 @@
     "message": "Gemini Enter Key Control"
   },
   "appDescription": {
-    "message": "减少在 Gemini、Gemini Notebook（原 NotebookLM）、Google Flow 和独立版 Google Chat 中因按 Enter 键而误发送的情况。"
+    "message": "减少在 Gemini、Gemini Notebook（原 NotebookLM）、Google Flow 和 Google Chat（包括 Gmail 中的 Chat）中因按 Enter 键而误发送的情况。"
   },
   "enableEnterControl": {
     "message": "启用 Enter 控制"
@@ -48,7 +48,7 @@
     "message": "查看 Chrome 扩展"
   },
   "sidePanelNotice": {
-    "message": "支持 Gemini、Gemini Notebook（原 NotebookLM）、Google Flow 和独立版 Google Chat。不适用于浏览器内置的 Gemini 侧边面板或 Gmail 中的 Google Chat。"
+    "message": "支持 Gemini、Gemini Notebook（原 NotebookLM）、Google Flow、独立版 Google Chat 和 Gmail 中的 Google Chat。不适用于浏览器内置的 Gemini 侧边面板。"
   },
   "flowShortcutNotice": {
     "message": "Google Flow 目前不支持使用 Command 键发送。"

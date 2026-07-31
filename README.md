@@ -1,6 +1,6 @@
 # Gemini Enter Key Control (by marusin)
 
-A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, formerly NotebookLM, Google Flow, and standalone Google Chat.
+A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, formerly NotebookLM, Google Flow, and Google Chat, including Chat inside Gmail.
 
 ## Features
 
@@ -8,15 +8,16 @@ A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, 
 - Press Shift + Enter to send your message  
 - Supports Ctrl, Cmd, and combined send key modes
 - Supports Gemini Notebook on both `notebook.google.com` and the legacy `notebooklm.google.com` domain
-- Supports standalone Google Chat at `chat.google.com`
+- Supports Google Chat at `chat.google.com`, including the Chat frame inside Gmail
 
 ## Google Chat
 
 - Plain Enter inserts a newline, and the selected send shortcut sends the message.
 - Settings are shared with Gemini, Gemini Notebook, and Google Flow.
 - Supports regular direct messages, group direct messages, and standard space composers that use the supported composer structure.
+- Supports Google Chat loaded inside Gmail through its `chat.google.com` frame.
+- Gmail email composition, reply, search, subject, and forwarding fields remain outside the extension's scope.
 - Detects the editor and send controls from stable DOM attributes rather than translated UI labels.
-- Google Chat in Gmail is not included.
 - Advanced message editing and rich-text-specific behavior are not separately guaranteed.
 
 ## Benefits
@@ -29,7 +30,7 @@ A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, 
 
 - No data collection  
 - No external communication  
-- Works only on supported Gemini, Gemini Notebook, Google Flow, and standalone Google Chat pages
+- Works only on supported Gemini, Gemini Notebook, Google Flow, and Google Chat pages and frames
 
 ## Installation
 
@@ -38,6 +39,12 @@ A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, 
 3. Start using Gemini with improved input behavior  
 
 ## Changelog
+
+### 1.6.1
+- Added support for Google Chat inside Gmail.
+- Kept Gmail email composition, reply, search, subject, and forwarding fields outside the extension's scope.
+- Improved frame-specific Google Chat detection.
+- Improved compatibility and stability.
 
 ### 1.6.0
 - Added support for standalone Google Chat at `chat.google.com`.

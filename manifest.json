@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "default_locale": "en",
   "name": "__MSG_appName__",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "__MSG_appDescription__",
   "icons": {
     "16": "icon16.png",
@@ -36,7 +36,6 @@
     },
     {
       "matches": [
-        "https://chat.google.com/*",
         "https://gemini.google.com/*",
         "https://notebook.google.com/*",
         "https://notebooklm.google.com/*",
@@ -46,6 +45,16 @@
         "content_script.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://chat.google.com/*"
+      ],
+      "js": [
+        "content_script.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ]
 }

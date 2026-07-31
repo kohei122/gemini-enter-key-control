@@ -3,7 +3,7 @@
 const DEBUG_LOG_FLOW_ACTIONS = false;
 const INIT_KEY = "__geminiEnterKeyControlInitialized";
 const INIT_VERSION_KEY = "__geminiEnterKeyControlInitVersion";
-const INIT_VERSION = "1.6.0-google-chat-1";
+const INIT_VERSION = "1.6.1-gmail-chat-1";
 const INIT_MARKER_ATTRIBUTE = "data-gemini-enter-key-control-initialized";
 if (window[INIT_KEY] || document.documentElement?.hasAttribute(INIT_MARKER_ATTRIBUTE)) {
   if (DEBUG_LOG_FLOW_ACTIONS &&
@@ -63,8 +63,11 @@ const GOOGLE_CHAT_COMPOSER_ROOT_SELECTOR =
   'c-wiz[data-is-room-compose-postbar="true"][role="region"]';
 const GOOGLE_CHAT_EDITOR_SELECTOR =
   '[role="textbox"][contenteditable="true"][aria-multiline="true"][g_editable="true"]';
+const GOOGLE_CHAT_EMBEDDED_EDITOR_SELECTOR =
+  `${GOOGLE_CHAT_EDITOR_SELECTOR}[jsname="yrriRe"]`;
 const GOOGLE_CHAT_SEND_BUTTON_SELECTOR = 'button[jsname="GBTyxb"]';
 const GOOGLE_CHAT_SCHEDULE_SEND_BUTTON_SELECTOR = 'button[jsname="ssKfee"]';
+const GOOGLE_CHAT_EMBEDDED_ROOT_MAX_ANCESTOR_DEPTH = 18;
 const NOTEBOOKLM_CHAT_TEXTAREA_SELECTOR = "textarea.query-box-input";
 const NOTEBOOKLM_EXCLUDED_TEXTAREA_SELECTOR =
   'textarea.query-box-textarea, textarea[formcontrolname="discoverSourcesQuery"]';
@@ -437,19 +440,56 @@ function isGoogleChatHost(hostname) {
   return hostname === "chat.google.com";
 }
 
-function getGoogleChatComposerRoot(editor) {
-  if (!(editor instanceof HTMLElement)) return null;
+function isEmbeddedGoogleChatFrame() {
+  return isGoogleChatHost(location.hostname) && window.top !== window;
+}
 
+function getStandaloneGoogleChatComposerRoot(editor) {
   const root = editor.closest(GOOGLE_CHAT_COMPOSER_ROOT_SELECTOR);
   if (!(root instanceof HTMLElement)) return null;
-  if (!root.contains(editor)) return null;
-  if (!isElementVisible(root)) return null;
+  if (!root.contains(editor) || !isElementVisible(root)) return null;
   return root;
+}
+
+function findEmbeddedGoogleChatComposerRoot(editor) {
+  if (!isEmbeddedGoogleChatFrame()) return null;
+  if (!editor.matches(GOOGLE_CHAT_EMBEDDED_EDITOR_SELECTOR)) return null;
+
+  let ancestor = editor.parentElement;
+  for (
+    let depth = 1;
+    ancestor && depth <= GOOGLE_CHAT_EMBEDDED_ROOT_MAX_ANCESTOR_DEPTH;
+    depth += 1, ancestor = ancestor.parentElement
+  ) {
+    if (!(ancestor instanceof HTMLElement)) return null;
+    if (ancestor === document.body || ancestor === document.documentElement) return null;
+    if (!isElementVisible(ancestor)) continue;
+
+    const editors = Array.from(
+      ancestor.querySelectorAll(GOOGLE_CHAT_EMBEDDED_EDITOR_SELECTOR)
+    );
+    if (editors.length !== 1 || editors[0] !== editor) continue;
+
+    const sendButtons = ancestor.querySelectorAll(GOOGLE_CHAT_SEND_BUTTON_SELECTOR);
+    if (sendButtons.length === 1) return ancestor;
+  }
+
+  return null;
+}
+
+function getGoogleChatComposerRoot(editor) {
+  if (!(editor instanceof HTMLElement)) return null;
+  if (!isGoogleChatHost(location.hostname)) return null;
+
+  const standaloneRoot = getStandaloneGoogleChatComposerRoot(editor);
+  if (standaloneRoot) return standaloneRoot;
+  return findEmbeddedGoogleChatComposerRoot(editor);
 }
 
 function isGoogleChatEditor(element) {
   if (!(element instanceof HTMLElement)) return false;
   if (!element.matches(GOOGLE_CHAT_EDITOR_SELECTOR)) return false;
+  if (!element.isConnected) return false;
   if (!isElementVisible(element) || isElementDisabled(element)) return false;
   return getGoogleChatComposerRoot(element) !== null;
 }
@@ -470,13 +510,15 @@ function findGoogleChatSendButton(editor) {
   const root = getGoogleChatComposerRoot(editor);
   if (!root) return null;
 
+  const isStandaloneRoot = root.matches(GOOGLE_CHAT_COMPOSER_ROOT_SELECTOR);
   const scheduleButton = root.querySelector(GOOGLE_CHAT_SCHEDULE_SEND_BUTTON_SELECTOR);
   const candidates = Array.from(root.querySelectorAll(GOOGLE_CHAT_SEND_BUTTON_SELECTOR))
     .filter((button) =>
       button instanceof HTMLButtonElement &&
       button !== scheduleButton &&
       button.isConnected &&
-      button.closest(GOOGLE_CHAT_COMPOSER_ROOT_SELECTOR) === root &&
+      (!isStandaloneRoot ||
+        button.closest(GOOGLE_CHAT_COMPOSER_ROOT_SELECTOR) === root) &&
       isElementVisible(button) &&
       !isElementDisabled(button)
     );

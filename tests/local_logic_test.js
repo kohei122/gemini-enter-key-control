@@ -76,6 +76,15 @@ class ElementMock extends EventTargetMock {
         this.getAttribute("aria-multiline") === "true" &&
         this.getAttribute("g_editable") === "true";
     }
+    if (selector ===
+        '[role="textbox"][contenteditable="true"][aria-multiline="true"]' +
+        '[g_editable="true"][jsname="yrriRe"]') {
+      return this.getAttribute("role") === "textbox" &&
+        this.getAttribute("contenteditable") === "true" &&
+        this.getAttribute("aria-multiline") === "true" &&
+        this.getAttribute("g_editable") === "true" &&
+        this.getAttribute("jsname") === "yrriRe";
+    }
     if (selector === 'button[jsname="GBTyxb"]') {
       return this.tagName === "BUTTON" && this.getAttribute("jsname") === "GBTyxb";
     }
@@ -399,6 +408,7 @@ function createContentContext() {
     crypto: webcrypto, performance, setTimeout, clearTimeout, Node: { TEXT_NODE: 3 }
   });
   context.window = context;
+  context.window.top = context.window;
   context.window.getSelection = () => null;
   return context;
 }
@@ -414,7 +424,7 @@ globalThis.__test = {
   isNotebookHost, getNotebookLmChatTextarea, findNotebookLmSendButton,
   isGoogleChatHost, isGoogleChatEditor, getGoogleChatComposer,
   getGoogleChatComposerRoot, findGoogleChatSendButton,
-  shouldBypassGoogleChatEnter,
+  shouldBypassGoogleChatEnter, isEmbeddedGoogleChatFrame,
   isSyntheticEnterDispatchActive: () => isDispatchingSyntheticEnter
 };
 globalThis.__setTestSettings = (mode, isMac) => {
@@ -804,6 +814,89 @@ globalThis.__setTestSettings = (mode, isMac) => {
   assert.strictEqual(api.findGoogleChatSendButton(ambiguousChat.editor), null);
   assert.strictEqual(api.findGoogleChatSendButton(outsideEditor), null);
 
+  const makeEmbeddedGoogleChatComposer = (ancestorDepth = 7) => {
+    const root = new ElementMock("div");
+    let parent = root;
+    for (let depth = 1; depth < ancestorDepth; depth += 1) {
+      const wrapper = new ElementMock("div");
+      parent.append(wrapper);
+      parent = wrapper;
+    }
+    const editor = new ElementMock("div");
+    editor.setAttribute("jsname", "yrriRe");
+    editor.setAttribute("role", "textbox");
+    editor.setAttribute("contenteditable", "true");
+    editor.setAttribute("aria-multiline", "true");
+    editor.setAttribute("g_editable", "true");
+    parent.append(editor);
+    const sendButton = makeButton("localized send label");
+    sendButton.setAttribute("jsname", "GBTyxb");
+    const scheduleButton = makeButton("localized schedule label");
+    scheduleButton.setAttribute("jsname", "ssKfee");
+    root.append(sendButton, scheduleButton);
+    context.document.body.append(root);
+    return { root, editor, sendButton, scheduleButton };
+  };
+
+  context.window.top = {};
+  assert.strictEqual(api.isEmbeddedGoogleChatFrame(), true);
+  const embeddedChat = makeEmbeddedGoogleChatComposer();
+  activeDocument.activeElement = embeddedChat.editor;
+  assert.strictEqual(api.isGoogleChatEditor(embeddedChat.editor), true);
+  assert.strictEqual(api.getGoogleChatComposer(embeddedChat.editor), embeddedChat.editor);
+  assert.strictEqual(api.getGoogleChatComposerRoot(embeddedChat.editor), embeddedChat.root);
+  assert.strictEqual(api.findGoogleChatSendButton(embeddedChat.editor), embeddedChat.sendButton);
+  assert.strictEqual(embeddedChat.scheduleButton.clickCount, 0);
+
+  embeddedChat.sendButton.disabled = true;
+  assert.strictEqual(api.findGoogleChatSendButton(embeddedChat.editor), null);
+  embeddedChat.sendButton.disabled = false;
+  embeddedChat.sendButton.setAttribute("aria-disabled", "true");
+  assert.strictEqual(api.findGoogleChatSendButton(embeddedChat.editor), null);
+  embeddedChat.sendButton.removeAttribute("aria-disabled");
+
+  const ambiguousEmbeddedChat = makeEmbeddedGoogleChatComposer();
+  const embeddedDuplicateSend = makeButton("duplicate");
+  embeddedDuplicateSend.setAttribute("jsname", "GBTyxb");
+  ambiguousEmbeddedChat.root.append(embeddedDuplicateSend);
+  assert.strictEqual(api.getGoogleChatComposerRoot(ambiguousEmbeddedChat.editor), null);
+  assert.strictEqual(api.findGoogleChatSendButton(ambiguousEmbeddedChat.editor), null);
+
+  const multipleEditorChat = makeEmbeddedGoogleChatComposer();
+  const secondEmbeddedEditor = new ElementMock("div");
+  for (const [name, value] of [
+    ["jsname", "yrriRe"],
+    ["role", "textbox"],
+    ["contenteditable", "true"],
+    ["aria-multiline", "true"],
+    ["g_editable", "true"]
+  ]) {
+    secondEmbeddedEditor.setAttribute(name, value);
+  }
+  multipleEditorChat.root.append(secondEmbeddedEditor);
+  assert.strictEqual(api.getGoogleChatComposerRoot(multipleEditorChat.editor), null);
+
+  const tooDeepEmbeddedChat = makeEmbeddedGoogleChatComposer(19);
+  assert.strictEqual(api.getGoogleChatComposerRoot(tooDeepEmbeddedChat.editor), null);
+
+  const genericEmbeddedChat = makeEmbeddedGoogleChatComposer();
+  genericEmbeddedChat.editor.removeAttribute("jsname");
+  assert.strictEqual(api.getGoogleChatComposer(genericEmbeddedChat.editor), null);
+
+  const disconnectedEmbeddedChat = makeEmbeddedGoogleChatComposer();
+  disconnectedEmbeddedChat.editor.isConnected = false;
+  assert.strictEqual(api.getGoogleChatComposer(disconnectedEmbeddedChat.editor), null);
+
+  context.window.top = context.window;
+  assert.strictEqual(api.isEmbeddedGoogleChatFrame(), false);
+  assert.strictEqual(api.getGoogleChatComposer(embeddedChat.editor), null);
+  assert.strictEqual(api.getGoogleChatComposer(chat.editor), chat.editor);
+
+  context.window.top = {};
+  context.location.hostname = "mail.google.com";
+  assert.strictEqual(api.getGoogleChatComposer(embeddedChat.editor), null);
+  context.location.hostname = "chat.google.com";
+
   const candidateChat = makeGoogleChatComposer();
   activeDocument.activeElement = candidateChat.editor;
   const candidateEvent = { key: "Enter" };
@@ -829,6 +922,15 @@ globalThis.__setTestSettings = (mode, isMac) => {
   assert.strictEqual(api.shouldBypassGoogleChatEnter(candidateEvent, candidateChat.editor), true);
   activeDocument.activeElement = activeDocument.body;
   assert.strictEqual(api.shouldBypassGoogleChatEnter(candidateEvent, candidateChat.editor), true);
+
+  activeDocument.activeElement = embeddedChat.editor;
+  assert.strictEqual(api.shouldBypassGoogleChatEnter(candidateEvent, embeddedChat.editor), false);
+  const embeddedListbox = new ElementMock("div");
+  embeddedListbox.setAttribute("role", "listbox");
+  embeddedChat.root.append(embeddedListbox);
+  assert.strictEqual(api.shouldBypassGoogleChatEnter(candidateEvent, embeddedChat.editor), true);
+  embeddedListbox.rect.width = 0;
+  assert.strictEqual(api.shouldBypassGoogleChatEnter(candidateEvent, embeddedChat.editor), false);
 
   const chatKeys = makeGoogleChatComposer();
   activeDocument.activeElement = chatKeys.editor;
@@ -889,6 +991,31 @@ globalThis.__setTestSettings = (mode, isMac) => {
   expectChatSend("both", { metaKey: true }, true);
   expectChatSend("combo", { shiftKey: true, ctrlKey: true });
   expectChatSend("shiftCmd", { shiftKey: true, metaKey: true }, true);
+
+  context.__setTestSettings("shift", false);
+  activeDocument.activeElement = embeddedChat.editor;
+  const embeddedSend = chatEvent(
+    { shiftKey: true },
+    { target: embeddedChat.editor }
+  );
+  const embeddedClicksBefore = embeddedChat.sendButton.clickCount;
+  api.handleKey(embeddedSend.event);
+  assert.strictEqual(embeddedChat.sendButton.clickCount, embeddedClicksBefore + 1);
+  assert.strictEqual(embeddedChat.scheduleButton.clickCount, 0);
+  assert.strictEqual(embeddedSend.prevented, 1);
+
+  let embeddedSyntheticLineBreaks = 0;
+  embeddedChat.editor.addEventListener("keydown", (event) => {
+    if (event.shiftKey === true && event.isTrusted === false) {
+      embeddedSyntheticLineBreaks += 1;
+    }
+  });
+  const embeddedPlainEnter = chatEvent({}, { target: embeddedChat.editor });
+  api.handleKey(embeddedPlainEnter.event);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await waitForSyntheticEnterGuard();
+  assert.strictEqual(embeddedSyntheticLineBreaks, 1);
+  assert.strictEqual(embeddedPlainEnter.prevented, 1);
 
   context.__setTestSettings("shift", false);
   activeDocument.activeElement = chatKeys.editor;
@@ -974,14 +1101,42 @@ function verifyManifestScope() {
   assert.deepStrictEqual(mainWorld.matches, ["https://labs.google/fx/*"]);
   assert.strictEqual(mainWorld.run_at, "document_start");
   assert(!mainWorld.matches.some((match) => match.includes("notebook")));
-  const normalWorld = manifest.content_scripts.find((entry) => entry.js.includes("content_script.js"));
-  assert(normalWorld.matches.includes("https://chat.google.com/*"));
+  const isolatedWorldEntries = manifest.content_scripts
+    .filter((entry) => entry.js.includes("content_script.js"));
+  assert.strictEqual(isolatedWorldEntries.length, 2);
+  const chatWorld = isolatedWorldEntries.find((entry) =>
+    entry.matches.includes("https://chat.google.com/*")
+  );
+  const normalWorld = isolatedWorldEntries.find((entry) => entry !== chatWorld);
+  assert(chatWorld);
+  assert.deepStrictEqual(chatWorld.matches, ["https://chat.google.com/*"]);
+  assert.strictEqual(chatWorld.all_frames, true);
+  assert.strictEqual(chatWorld.run_at, "document_idle");
+  assert.strictEqual(Object.hasOwn(chatWorld, "world"), false);
+  assert.strictEqual(Object.hasOwn(normalWorld, "all_frames"), false);
+  assert.deepStrictEqual(
+    manifest.content_scripts.filter((entry) => entry.all_frames === true),
+    [chatWorld]
+  );
+  assert(manifest.content_scripts.every((entry) =>
+    Object.hasOwn(entry, "match_about_blank") === false
+  ));
   assert(normalWorld.matches.includes("https://gemini.google.com/*"));
   assert(normalWorld.matches.includes("https://notebook.google.com/*"));
   assert(normalWorld.matches.includes("https://notebooklm.google.com/*"));
-  assert.strictEqual(manifest.version, "1.6.0");
+  assert(normalWorld.matches.includes("https://labs.google/fx/*"));
+  assert(!normalWorld.matches.includes("https://chat.google.com/*"));
+  assert.strictEqual(
+    isolatedWorldEntries.flatMap((entry) => entry.matches)
+      .filter((match) => match === "https://chat.google.com/*").length,
+    1
+  );
+  assert.strictEqual(manifest.version, "1.6.1");
   assert.strictEqual(Object.hasOwn(manifest, "host_permissions"), false);
-  assert(!normalWorld.matches.some((match) => match.includes("mail.google.com")));
+  assert.strictEqual(Object.hasOwn(manifest, "web_accessible_resources"), false);
+  assert(!manifest.content_scripts
+    .flatMap((entry) => entry.matches)
+    .some((match) => match.includes("mail.google.com")));
   assert(!mainWorld.matches.some((match) => match.includes("chat.google.com")));
   const nonFlowMainWorld = loadMainBridge("/fx/ja/tools/imagefx");
   assert.strictEqual(nonFlowMainWorld.token, null);
@@ -998,6 +1153,15 @@ function verifyLocalesAndLanguageIndependentFlowSignals() {
     es: "Actualmente, Google Flow no admite atajos de envío con la tecla Command.",
     pt_BR: "No momento, o Google Flow não oferece suporte a atalhos de envio com a tecla Command."
   };
+  const expectedGmailSupportPhrases = {
+    ja: "Gmail内Google Chatに対応",
+    en: "including Google Chat inside Gmail",
+    ko: "Gmail 내 Google Chat을 지원",
+    zh_CN: "Gmail 中的 Google Chat",
+    zh_TW: "Gmail 中的 Google Chat",
+    es: "incluido Google Chat en Gmail",
+    pt_BR: "incluindo o Google Chat no Gmail"
+  };
   let expectedKeys = null;
   for (const localeName of localeNames) {
     const messages = JSON.parse(fs.readFileSync(
@@ -1010,6 +1174,9 @@ function verifyLocalesAndLanguageIndependentFlowSignals() {
     assert.strictEqual(messages.flowShortcutNotice.message, expectedNotices[localeName]);
     assert(messages.appDescription.message.includes("Google Chat"));
     assert(messages.sidePanelNotice.message.includes("Google Chat"));
+    assert(messages.sidePanelNotice.message.includes(
+      expectedGmailSupportPhrases[localeName]
+    ));
   }
 
   const popupHtml = fs.readFileSync(path.join(ROOT, "popup.html"), "utf8");
@@ -1022,6 +1189,11 @@ function verifyLocalesAndLanguageIndependentFlowSignals() {
     "const shouldShowMacNotice = shouldShowFlowShortcutNotice(tabs[0]?.url, isMacPlatform);"
   ));
   assert(popupSource.includes("const DEBUG_LOG_FLOW_SETTINGS = false;"));
+  const contentSource = fs.readFileSync(path.join(ROOT, "content_script.js"), "utf8");
+  assert(contentSource.includes('const INIT_VERSION = "1.6.1-gmail-chat-1";'));
+  const readme = fs.readFileSync(path.join(ROOT, "README.md"), "utf8");
+  assert(readme.includes("### 1.6.1"));
+  assert(readme.includes("Added support for Google Chat inside Gmail."));
   const extractFunction = (name) => {
     const start = popupSource.indexOf(`function ${name}(`);
     assert(start >= 0, `popup function not found: ${name}`);

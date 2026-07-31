@@ -236,11 +236,19 @@ function isNotebookHost(hostname) {
     hostname === "notebooklm.google.com";
 }
 
+function isGoogleChatHost(hostname) {
+  return hostname === "chat.google.com";
+}
+
 function isTargetTabUrl(url) {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:") return false;
-    if (parsed.hostname === "gemini.google.com" || isNotebookHost(parsed.hostname)) return true;
+    if (parsed.hostname === "gemini.google.com" ||
+        isNotebookHost(parsed.hostname) ||
+        isGoogleChatHost(parsed.hostname)) {
+      return true;
+    }
     return parsed.hostname === "labs.google" && parsed.pathname.includes("/tools/flow/");
   } catch {
     return false;

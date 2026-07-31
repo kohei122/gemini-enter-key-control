@@ -3,7 +3,7 @@
 const DEBUG_LOG_FLOW_ACTIONS = false;
 const INIT_KEY = "__geminiEnterKeyControlInitialized";
 const INIT_VERSION_KEY = "__geminiEnterKeyControlInitVersion";
-const INIT_VERSION = "1.5.1-notebook-domain-1";
+const INIT_VERSION = "1.6.0-google-chat-1";
 const INIT_MARKER_ATTRIBUTE = "data-gemini-enter-key-control-initialized";
 if (window[INIT_KEY] || document.documentElement?.hasAttribute(INIT_MARKER_ATTRIBUTE)) {
   if (DEBUG_LOG_FLOW_ACTIONS &&
@@ -59,6 +59,12 @@ const DEV_FORCE_MAC_PLATFORM_KEY = "devForceMacPlatform";
 const TEXTBOX_SELECTOR = 'div[contenteditable="true"][role="textbox"]';
 const FLOW_TEXTBOX_SELECTOR =
   '[data-slate-editor="true"][role="textbox"][contenteditable="true"]';
+const GOOGLE_CHAT_COMPOSER_ROOT_SELECTOR =
+  'c-wiz[data-is-room-compose-postbar="true"][role="region"]';
+const GOOGLE_CHAT_EDITOR_SELECTOR =
+  '[role="textbox"][contenteditable="true"][aria-multiline="true"][g_editable="true"]';
+const GOOGLE_CHAT_SEND_BUTTON_SELECTOR = 'button[jsname="GBTyxb"]';
+const GOOGLE_CHAT_SCHEDULE_SEND_BUTTON_SELECTOR = 'button[jsname="ssKfee"]';
 const NOTEBOOKLM_CHAT_TEXTAREA_SELECTOR = "textarea.query-box-input";
 const NOTEBOOKLM_EXCLUDED_TEXTAREA_SELECTOR =
   'textarea.query-box-textarea, textarea[formcontrolname="discoverSourcesQuery"]';
@@ -427,6 +433,99 @@ function getFlowTextbox(target) {
   return textbox;
 }
 
+function isGoogleChatHost(hostname) {
+  return hostname === "chat.google.com";
+}
+
+function getGoogleChatComposerRoot(editor) {
+  if (!(editor instanceof HTMLElement)) return null;
+
+  const root = editor.closest(GOOGLE_CHAT_COMPOSER_ROOT_SELECTOR);
+  if (!(root instanceof HTMLElement)) return null;
+  if (!root.contains(editor)) return null;
+  if (!isElementVisible(root)) return null;
+  return root;
+}
+
+function isGoogleChatEditor(element) {
+  if (!(element instanceof HTMLElement)) return false;
+  if (!element.matches(GOOGLE_CHAT_EDITOR_SELECTOR)) return false;
+  if (!isElementVisible(element) || isElementDisabled(element)) return false;
+  return getGoogleChatComposerRoot(element) !== null;
+}
+
+function getGoogleChatComposer(target) {
+  if (!isGoogleChatHost(location.hostname) || !target) return null;
+
+  const element = target instanceof Element ? target : target.parentElement;
+  if (!element) return null;
+
+  const editor = element.matches(GOOGLE_CHAT_EDITOR_SELECTOR)
+    ? element
+    : element.closest(GOOGLE_CHAT_EDITOR_SELECTOR);
+  return isGoogleChatEditor(editor) ? editor : null;
+}
+
+function findGoogleChatSendButton(editor) {
+  const root = getGoogleChatComposerRoot(editor);
+  if (!root) return null;
+
+  const scheduleButton = root.querySelector(GOOGLE_CHAT_SCHEDULE_SEND_BUTTON_SELECTOR);
+  const candidates = Array.from(root.querySelectorAll(GOOGLE_CHAT_SEND_BUTTON_SELECTOR))
+    .filter((button) =>
+      button instanceof HTMLButtonElement &&
+      button !== scheduleButton &&
+      button.isConnected &&
+      button.closest(GOOGLE_CHAT_COMPOSER_ROOT_SELECTOR) === root &&
+      isElementVisible(button) &&
+      !isElementDisabled(button)
+    );
+
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+function isVisibleGoogleChatCandidateContainer(container) {
+  if (!(container instanceof HTMLElement) || !isElementVisible(container)) return false;
+
+  const role = container.getAttribute("role");
+  if (role === "listbox" || role === "menu") return true;
+  if (role === "option" && container.getAttribute("aria-selected") === "true") return true;
+  if (container.getAttribute("data-expanded") === "true") return true;
+
+  return Array.from(container.querySelectorAll('[role="option"][aria-selected="true"]'))
+    .some((option) => option instanceof HTMLElement && isElementVisible(option));
+}
+
+function shouldBypassGoogleChatEnter(event, editor) {
+  if (!isGoogleChatEditor(editor)) return true;
+
+  const activeElement = document.activeElement;
+  if (activeElement !== editor && !editor.contains(activeElement)) return true;
+  if (editor.getAttribute("aria-activedescendant")) return true;
+
+  const controlledIds = (editor.getAttribute("aria-controls") || "")
+    .split(/\s+/)
+    .filter(Boolean);
+  for (const id of controlledIds) {
+    const controlled = document.getElementById(id);
+    if (isVisibleGoogleChatCandidateContainer(controlled)) return true;
+  }
+
+  const root = getGoogleChatComposerRoot(editor);
+  if (!root) return true;
+  const nearbyCandidates = root.querySelectorAll(
+    '[role="listbox"], [role="menu"], [role="option"][aria-selected="true"], [data-expanded="true"]'
+  );
+  return Array.from(nearbyCandidates).some(isVisibleGoogleChatCandidateContainer);
+}
+
+function sendGoogleChatMessage(editor) {
+  const button = findGoogleChatSendButton(editor);
+  if (!button) return false;
+  button.click();
+  return true;
+}
+
 function isNotebookHost(hostname) {
   return hostname === "notebook.google.com" ||
     hostname === "notebooklm.google.com";
@@ -741,9 +840,10 @@ function logSendButtonCandidates(textbox, candidates, selectedButton) {
   console.groupEnd();
 }
 
-function dispatchSyntheticShiftEnter(textbox) {
+function dispatchSyntheticShiftEnter(textbox, shouldFocus = true) {
   setTimeout(() => {
-    textbox.focus();
+    if (!textbox?.isConnected) return;
+    if (shouldFocus) textbox.focus();
     isDispatchingSyntheticEnter = true;
     try {
       const synthetic = new KeyboardEvent("keydown", {
@@ -1829,20 +1929,50 @@ function insertNewlineByExecCommand(textbox) {
 function getControlledInput(target) {
   const notebookLmTextarea = getNotebookLmChatTextarea(target);
   if (notebookLmTextarea) {
-    return { notebookLmTextarea, flowTextbox: null, textbox: null };
+    return {
+      notebookLmTextarea,
+      googleChatEditor: null,
+      flowTextbox: null,
+      textbox: null
+    };
+  }
+
+  const googleChatEditor = getGoogleChatComposer(target);
+  if (googleChatEditor) {
+    return {
+      notebookLmTextarea: null,
+      googleChatEditor,
+      flowTextbox: null,
+      textbox: null
+    };
   }
 
   const flowTextbox = getFlowTextbox(target);
   if (flowTextbox) {
-    return { notebookLmTextarea: null, flowTextbox, textbox: null };
+    return {
+      notebookLmTextarea: null,
+      googleChatEditor: null,
+      flowTextbox,
+      textbox: null
+    };
   }
 
   const textbox = getTargetTextbox(target);
   if (textbox) {
-    return { notebookLmTextarea: null, flowTextbox: null, textbox };
+    return {
+      notebookLmTextarea: null,
+      googleChatEditor: null,
+      flowTextbox: null,
+      textbox
+    };
   }
 
-  return { notebookLmTextarea: null, flowTextbox: null, textbox: null };
+  return {
+    notebookLmTextarea: null,
+    googleChatEditor: null,
+    flowTextbox: null,
+    textbox: null
+  };
 }
 
 function getCurrentGeminiTextbox() {
@@ -1962,8 +2092,9 @@ function handleKey(event) {
   const isEnter = event.code === "Enter" || event.code === "NumpadEnter";
   if (!isEnter) return;
 
-  const { notebookLmTextarea, flowTextbox, textbox } = getControlledInput(event.target);
-  if (!notebookLmTextarea && !flowTextbox && !textbox) return;
+  const { notebookLmTextarea, googleChatEditor, flowTextbox, textbox } =
+    getControlledInput(event.target);
+  if (!notebookLmTextarea && !googleChatEditor && !flowTextbox && !textbox) return;
   if (!settingsLoaded) {
     if (flowTextbox) {
       logFlowAction("keydown ignored: settings not loaded", {
@@ -2010,6 +2141,25 @@ function handleKey(event) {
 
     stopHandledEnterEvent(event);
     insertTextareaNewline(notebookLmTextarea);
+    return;
+  }
+
+  if (googleChatEditor) {
+    if (shouldBypassGoogleChatEnter(event, googleChatEditor)) return;
+
+    if (event.repeat) {
+      stopHandledEnterEvent(event);
+      return;
+    }
+
+    if (isSend) {
+      stopHandledEnterEvent(event);
+      sendGoogleChatMessage(googleChatEditor);
+      return;
+    }
+
+    stopHandledEnterEvent(event);
+    dispatchSyntheticShiftEnter(googleChatEditor, false);
     return;
   }
 
@@ -2204,14 +2354,16 @@ initializeFlowReactBridge();
 document.addEventListener("keydown", handleKey, true);
 
 document.addEventListener("compositionstart", (event) => {
-  const { notebookLmTextarea, flowTextbox, textbox } = getControlledInput(event.target);
-  if (!notebookLmTextarea && !flowTextbox && !textbox) return;
+  const { notebookLmTextarea, googleChatEditor, flowTextbox, textbox } =
+    getControlledInput(event.target);
+  if (!notebookLmTextarea && !googleChatEditor && !flowTextbox && !textbox) return;
   isComposingActive = true;
 }, true);
 
 document.addEventListener("compositionend", (event) => {
-  const { notebookLmTextarea, flowTextbox, textbox } = getControlledInput(event.target);
-  if (!notebookLmTextarea && !flowTextbox && !textbox) return;
+  const { notebookLmTextarea, googleChatEditor, flowTextbox, textbox } =
+    getControlledInput(event.target);
+  if (!notebookLmTextarea && !googleChatEditor && !flowTextbox && !textbox) return;
   isComposingActive = false;
   lastCompositionEndAt = performance.now();
 }, true);

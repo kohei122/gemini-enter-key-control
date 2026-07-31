@@ -6,7 +6,7 @@
     "message": "Gemini Enter Key Control"
   },
   "appDescription": {
-    "message": "Gemini, Gemini Notebook(이전 NotebookLM), Google Flow에서 Enter 키로 인한 실수 전송을 줄입니다."
+    "message": "Gemini, Gemini Notebook(이전 NotebookLM), Google Flow, 독립형 Google Chat에서 Enter 키로 인한 실수 전송을 줄입니다."
   },
   "enableEnterControl": {
     "message": "Enter 제어 활성화"
@@ -48,7 +48,7 @@
     "message": "Chrome 확장 보기"
   },
   "sidePanelNotice": {
-    "message": "Gemini, Gemini Notebook(이전 NotebookLM), Google Flow를 지원합니다. 브라우저에 내장된 Gemini 사이드 패널에는 적용되지 않습니다."
+    "message": "Gemini, Gemini Notebook(이전 NotebookLM), Google Flow, 독립형 Google Chat을 지원합니다. 브라우저 내장 Gemini 사이드 패널과 Gmail의 Google Chat에는 적용되지 않습니다."
   },
   "flowShortcutNotice": {
     "message": "Google Flow에서는 현재 Command 키를 사용한 전송을 지원하지 않습니다."

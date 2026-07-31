@@ -64,6 +64,33 @@ class ElementMock extends EventTargetMock {
         classes.includes("submit-button") &&
         this.getAttribute("type") === "submit";
     }
+    if (selector === 'c-wiz[data-is-room-compose-postbar="true"][role="region"]') {
+      return this.tagName === "C-WIZ" &&
+        this.getAttribute("data-is-room-compose-postbar") === "true" &&
+        this.getAttribute("role") === "region";
+    }
+    if (selector ===
+        '[role="textbox"][contenteditable="true"][aria-multiline="true"][g_editable="true"]') {
+      return this.getAttribute("role") === "textbox" &&
+        this.getAttribute("contenteditable") === "true" &&
+        this.getAttribute("aria-multiline") === "true" &&
+        this.getAttribute("g_editable") === "true";
+    }
+    if (selector === 'button[jsname="GBTyxb"]') {
+      return this.tagName === "BUTTON" && this.getAttribute("jsname") === "GBTyxb";
+    }
+    if (selector === 'button[jsname="ssKfee"]') {
+      return this.tagName === "BUTTON" && this.getAttribute("jsname") === "ssKfee";
+    }
+    if (selector === '[role="listbox"]') return this.getAttribute("role") === "listbox";
+    if (selector === '[role="menu"]') return this.getAttribute("role") === "menu";
+    if (selector === '[role="option"][aria-selected="true"]') {
+      return this.getAttribute("role") === "option" &&
+        this.getAttribute("aria-selected") === "true";
+    }
+    if (selector === '[data-expanded="true"]') {
+      return this.getAttribute("data-expanded") === "true";
+    }
     if (selector === ".actions-enter-button") return classes.includes("actions-enter-button");
     if (selector.includes("data-slate-editor")) {
       return this.getAttribute("data-slate-editor") === "true" &&
@@ -327,6 +354,17 @@ function createContentContext() {
   document.activeElement = document.body;
   document.querySelectorAll = (...args) => document.documentElement.querySelectorAll(...args);
   document.querySelector = () => null;
+  document.getElementById = (id) => {
+    const visit = (node) => {
+      if (node.id === id || node.getAttribute?.("id") === id) return node;
+      for (const child of node.children || []) {
+        const match = visit(child);
+        if (match) return match;
+      }
+      return null;
+    };
+    return visit(document.documentElement);
+  };
   document.createRange = () => ({ selectNodeContents() {}, collapse() {} });
   document.execCommand = () => false;
   activeDocument = document;
@@ -342,7 +380,21 @@ function createContentContext() {
     },
     Element: ElementMock, HTMLElement: ElementMock, HTMLButtonElement: ButtonMock,
     HTMLTextAreaElement: TextareaMock, CustomEvent: CustomEventMock,
-    KeyboardEvent: class {}, InputEvent: class {}, Event: class {},
+    KeyboardEvent: class {
+      constructor(type, init = {}) {
+        Object.assign(this, init, { type, isTrusted: false, defaultPrevented: false });
+      }
+    },
+    InputEvent: class {
+      constructor(type, init = {}) {
+        Object.assign(this, init, { type, defaultPrevented: false });
+      }
+    },
+    Event: class {
+      constructor(type, init = {}) {
+        Object.assign(this, init, { type, defaultPrevented: false });
+      }
+    },
     getComputedStyle: (element) => element.styleSnapshot,
     crypto: webcrypto, performance, setTimeout, clearTimeout, Node: { TEXT_NODE: 3 }
   });
@@ -359,7 +411,11 @@ globalThis.__test = {
   isFlowTrustedNativeReactShortcut, findFlowGenerateButton,
   findFlowGenerationStopButton, findSendButton,
   inspectFlowTrustedKeyHandoffAfterDelay, restoreFlowTextboxFocus, handleKey,
-  isNotebookHost, getNotebookLmChatTextarea, findNotebookLmSendButton
+  isNotebookHost, getNotebookLmChatTextarea, findNotebookLmSendButton,
+  isGoogleChatHost, isGoogleChatEditor, getGoogleChatComposer,
+  getGoogleChatComposerRoot, findGoogleChatSendButton,
+  shouldBypassGoogleChatEnter,
+  isSyntheticEnterDispatchActive: () => isDispatchingSyntheticEnter
 };
 globalThis.__setTestSettings = (mode, isMac) => {
   rawStoredSettings = { enabled: true, mode };
@@ -644,10 +700,272 @@ globalThis.__setTestSettings = (mode, isMac) => {
     assert.strictEqual(notebookKeys.button.clickCount, beforeClicks);
     assert.strictEqual(composing.prevented, 0);
   }
+
+  const makeGoogleChatComposer = (sendAriaLabel = "localized send label") => {
+    const root = new ElementMock("c-wiz");
+    root.setAttribute("data-is-room-compose-postbar", "true");
+    root.setAttribute("role", "region");
+    const editor = new ElementMock("div");
+    editor.setAttribute("role", "textbox");
+    editor.setAttribute("contenteditable", "true");
+    editor.setAttribute("aria-multiline", "true");
+    editor.setAttribute("g_editable", "true");
+    const sendButton = makeButton("localized send label");
+    sendButton.setAttribute("jsname", "GBTyxb");
+    if (sendAriaLabel !== null) sendButton.setAttribute("aria-label", sendAriaLabel);
+    const scheduleButton = makeButton("localized schedule label");
+    scheduleButton.setAttribute("jsname", "ssKfee");
+    root.append(editor, sendButton, scheduleButton);
+    context.document.body.append(root);
+    return { root, editor, sendButton, scheduleButton };
+  };
+
+  context.location.hostname = "chat.google.com";
+  context.location.pathname = "/u/0/dm/test";
+  assert.strictEqual(api.isGoogleChatHost("chat.google.com"), true);
+  assert.strictEqual(api.isGoogleChatHost("mail.google.com"), false);
+  assert.strictEqual(api.isGoogleChatHost("chat.google.com.evil.example"), false);
+
+  const chat = makeGoogleChatComposer();
+  activeDocument.activeElement = chat.editor;
+  assert.strictEqual(api.isGoogleChatEditor(chat.editor), true);
+  assert.strictEqual(api.getGoogleChatComposer(chat.editor), chat.editor);
+  assert.strictEqual(api.getGoogleChatComposerRoot(chat.editor), chat.root);
+  assert.strictEqual(api.findGoogleChatSendButton(chat.editor), chat.sendButton);
+  assert.strictEqual(chat.scheduleButton.clickCount, 0);
+
+  for (const ariaLabel of ["メッセージを送信", "Send message", "메시지 보내기", null]) {
+    const localizedChat = makeGoogleChatComposer(ariaLabel);
+    assert.strictEqual(
+      api.findGoogleChatSendButton(localizedChat.editor),
+      localizedChat.sendButton,
+      `Google Chat send detection must not depend on aria-label: ${ariaLabel}`
+    );
+  }
+
+  const outsideEditor = new ElementMock("div");
+  for (const [name, value] of [
+    ["role", "textbox"],
+    ["contenteditable", "true"],
+    ["aria-multiline", "true"],
+    ["g_editable", "true"]
+  ]) {
+    outsideEditor.setAttribute(name, value);
+  }
+  context.document.body.append(outsideEditor);
+  assert.strictEqual(api.getGoogleChatComposer(outsideEditor), null);
+
+  for (const role of ["search", "dialog"]) {
+    const excludedContainer = new ElementMock("div");
+    excludedContainer.setAttribute("role", role);
+    const excludedEditor = new ElementMock("div");
+    for (const [name, value] of [
+      ["role", "textbox"],
+      ["contenteditable", "true"],
+      ["aria-multiline", "true"],
+      ["g_editable", "true"]
+    ]) {
+      excludedEditor.setAttribute(name, value);
+    }
+    excludedContainer.append(excludedEditor);
+    context.document.body.append(excludedContainer);
+    assert.strictEqual(api.getGoogleChatComposer(excludedEditor), null);
+  }
+
+  for (const [attribute, value] of [
+    ["contenteditable", "false"],
+    ["aria-multiline", null],
+    ["g_editable", null]
+  ]) {
+    const invalid = makeGoogleChatComposer();
+    if (value === null) invalid.editor.removeAttribute(attribute);
+    else invalid.editor.setAttribute(attribute, value);
+    assert.strictEqual(api.getGoogleChatComposer(invalid.editor), null);
+  }
+  const hiddenChat = makeGoogleChatComposer();
+  hiddenChat.editor.rect.width = 0;
+  assert.strictEqual(api.getGoogleChatComposer(hiddenChat.editor), null);
+
+  chat.sendButton.disabled = true;
+  assert.strictEqual(api.findGoogleChatSendButton(chat.editor), null);
+  chat.sendButton.disabled = false;
+  chat.sendButton.setAttribute("aria-disabled", "true");
+  assert.strictEqual(api.findGoogleChatSendButton(chat.editor), null);
+  chat.sendButton.removeAttribute("aria-disabled");
+  chat.sendButton.rect.width = 0;
+  assert.strictEqual(api.findGoogleChatSendButton(chat.editor), null);
+  chat.sendButton.rect.width = 100;
+  assert.strictEqual(api.findGoogleChatSendButton(chat.editor), chat.sendButton);
+
+  const ambiguousChat = makeGoogleChatComposer();
+  const duplicateSend = makeButton("duplicate");
+  duplicateSend.setAttribute("jsname", "GBTyxb");
+  ambiguousChat.root.append(duplicateSend);
+  assert.strictEqual(api.findGoogleChatSendButton(ambiguousChat.editor), null);
+  assert.strictEqual(api.findGoogleChatSendButton(outsideEditor), null);
+
+  const candidateChat = makeGoogleChatComposer();
+  activeDocument.activeElement = candidateChat.editor;
+  const candidateEvent = { key: "Enter" };
+  assert.strictEqual(api.shouldBypassGoogleChatEnter(candidateEvent, candidateChat.editor), false);
+  candidateChat.editor.setAttribute("aria-activedescendant", "active-option");
+  assert.strictEqual(api.shouldBypassGoogleChatEnter(candidateEvent, candidateChat.editor), true);
+  candidateChat.editor.removeAttribute("aria-activedescendant");
+
+  const listbox = new ElementMock("div");
+  listbox.id = "chat-suggestions";
+  listbox.setAttribute("role", "listbox");
+  listbox.rect.width = 0;
+  candidateChat.root.append(listbox);
+  candidateChat.editor.setAttribute("aria-controls", listbox.id);
+  assert.strictEqual(api.shouldBypassGoogleChatEnter(candidateEvent, candidateChat.editor), false);
+  listbox.rect.width = 100;
+  assert.strictEqual(api.shouldBypassGoogleChatEnter(candidateEvent, candidateChat.editor), true);
+
+  const expandedCandidates = new ElementMock("div");
+  expandedCandidates.setAttribute("data-expanded", "true");
+  candidateChat.root.append(expandedCandidates);
+  listbox.rect.width = 0;
+  assert.strictEqual(api.shouldBypassGoogleChatEnter(candidateEvent, candidateChat.editor), true);
+  activeDocument.activeElement = activeDocument.body;
+  assert.strictEqual(api.shouldBypassGoogleChatEnter(candidateEvent, candidateChat.editor), true);
+
+  const chatKeys = makeGoogleChatComposer();
+  activeDocument.activeElement = chatKeys.editor;
+  let syntheticLineBreaks = 0;
+  chatKeys.editor.addEventListener("keydown", (event) => {
+    if (event.shiftKey === true && event.isTrusted === false) syntheticLineBreaks += 1;
+  });
+  const waitForSyntheticEnterGuard = async () => {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (!api.isSyntheticEnterDispatchActive()) return;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    assert.fail("synthetic Enter re-entry guard did not clear");
+  };
+  const chatEvent = (modifiers = {}, overrides = {}) => {
+    let prevented = 0;
+    let propagationStops = 0;
+    const event = {
+      target: chatKeys.editor,
+      key: "Enter",
+      code: "Enter",
+      keyCode: 13,
+      isTrusted: true,
+      isComposing: false,
+      repeat: false,
+      shiftKey: false,
+      ctrlKey: false,
+      metaKey: false,
+      altKey: false,
+      preventDefault() { prevented += 1; },
+      stopPropagation() { propagationStops += 1; },
+      stopImmediatePropagation() { propagationStops += 1; },
+      ...modifiers,
+      ...overrides
+    };
+    return {
+      event,
+      get prevented() { return prevented; },
+      get propagationStops() { return propagationStops; }
+    };
+  };
+  const expectChatSend = (mode, modifiers, isMac = false) => {
+    context.__setTestSettings(mode, isMac);
+    activeDocument.activeElement = chatKeys.editor;
+    const before = chatKeys.sendButton.clickCount;
+    const captured = chatEvent(modifiers);
+    api.handleKey(captured.event);
+    assert.strictEqual(chatKeys.sendButton.clickCount, before + 1, `${mode} should send in Chat`);
+    assert.strictEqual(chatKeys.scheduleButton.clickCount, 0);
+    assert.strictEqual(captured.prevented, 1);
+    assert.strictEqual(captured.propagationStops, 1);
+  };
+  expectChatSend("shift", { shiftKey: true });
+  expectChatSend("ctrl", { ctrlKey: true });
+  expectChatSend("cmd", { metaKey: true }, true);
+  expectChatSend("both", { shiftKey: true });
+  expectChatSend("both", { ctrlKey: true });
+  expectChatSend("both", { metaKey: true }, true);
+  expectChatSend("combo", { shiftKey: true, ctrlKey: true });
+  expectChatSend("shiftCmd", { shiftKey: true, metaKey: true }, true);
+
+  context.__setTestSettings("shift", false);
+  activeDocument.activeElement = chatKeys.editor;
+  const plainChatEnter = chatEvent();
+  api.handleKey(plainChatEnter.event);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await waitForSyntheticEnterGuard();
+  assert.strictEqual(syntheticLineBreaks, 1);
+  assert.strictEqual(plainChatEnter.prevented, 1);
+
+  const clicksBeforeNonSelectedChat = chatKeys.sendButton.clickCount;
+  const nonSelectedChat = chatEvent({ ctrlKey: true });
+  api.handleKey(nonSelectedChat.event);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await waitForSyntheticEnterGuard();
+  assert.strictEqual(chatKeys.sendButton.clickCount, clicksBeforeNonSelectedChat);
+  assert.strictEqual(syntheticLineBreaks, 2);
+  const altChat = chatEvent({ altKey: true });
+  api.handleKey(altChat.event);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await waitForSyntheticEnterGuard();
+  assert.strictEqual(chatKeys.sendButton.clickCount, clicksBeforeNonSelectedChat);
+  assert.strictEqual(syntheticLineBreaks, 3);
+
+  const repeatedChat = chatEvent({ shiftKey: true }, { repeat: true });
+  api.handleKey(repeatedChat.event);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.strictEqual(chatKeys.sendButton.clickCount, clicksBeforeNonSelectedChat);
+  assert.strictEqual(syntheticLineBreaks, 3);
+  assert.strictEqual(repeatedChat.prevented, 1);
+
+  const untrustedChat = chatEvent({ shiftKey: true }, { isTrusted: false });
+  api.handleKey(untrustedChat.event);
+  assert.strictEqual(untrustedChat.prevented, 0);
+  for (const overrides of [{ isComposing: true }, { keyCode: 229 }]) {
+    const before = chatKeys.sendButton.clickCount;
+    const composingChat = chatEvent({ shiftKey: true }, overrides);
+    api.handleKey(composingChat.event);
+    assert.strictEqual(chatKeys.sendButton.clickCount, before);
+    assert.strictEqual(composingChat.prevented, 0);
+  }
+
+  chatKeys.sendButton.disabled = true;
+  const disabledSend = chatEvent({ shiftKey: true });
+  api.handleKey(disabledSend.event);
+  assert.strictEqual(chatKeys.sendButton.clickCount, clicksBeforeNonSelectedChat);
+  assert.strictEqual(disabledSend.prevented, 1);
+  chatKeys.sendButton.disabled = false;
+  chatKeys.sendButton.setAttribute("jsname", "not-send");
+  const missingSend = chatEvent({ shiftKey: true });
+  api.handleKey(missingSend.event);
+  assert.strictEqual(chatKeys.sendButton.clickCount, clicksBeforeNonSelectedChat);
+  assert.strictEqual(missingSend.prevented, 1);
+  chatKeys.sendButton.setAttribute("jsname", "GBTyxb");
+
+  const bypassedChat = makeGoogleChatComposer();
+  activeDocument.activeElement = bypassedChat.editor;
+  bypassedChat.editor.setAttribute("aria-activedescendant", "mention-option");
+  const bypassEvent = chatEvent();
+  bypassEvent.event.target = bypassedChat.editor;
+  api.handleKey(bypassEvent.event);
+  assert.strictEqual(bypassEvent.prevented, 0);
+
   context.document.dispatchEvent({ type: "compositionend", target: notebookKeys.textarea });
   const graceWindow = notebookEvent({ shiftKey: true });
   api.handleKey(graceWindow.event);
   assert.strictEqual(graceWindow.prevented, 0);
+  await new Promise((resolve) => setTimeout(resolve, 90));
+  activeDocument.activeElement = chatKeys.editor;
+  context.document.dispatchEvent({ type: "compositionstart", target: chatKeys.editor });
+  const activeComposition = chatEvent({ shiftKey: true });
+  api.handleKey(activeComposition.event);
+  assert.strictEqual(activeComposition.prevented, 0);
+  context.document.dispatchEvent({ type: "compositionend", target: chatKeys.editor });
+  const chatGraceWindow = chatEvent({ shiftKey: true });
+  api.handleKey(chatGraceWindow.event);
+  assert.strictEqual(chatGraceWindow.prevented, 0);
 }
 
 function verifyManifestScope() {
@@ -657,11 +975,14 @@ function verifyManifestScope() {
   assert.strictEqual(mainWorld.run_at, "document_start");
   assert(!mainWorld.matches.some((match) => match.includes("notebook")));
   const normalWorld = manifest.content_scripts.find((entry) => entry.js.includes("content_script.js"));
+  assert(normalWorld.matches.includes("https://chat.google.com/*"));
   assert(normalWorld.matches.includes("https://gemini.google.com/*"));
   assert(normalWorld.matches.includes("https://notebook.google.com/*"));
   assert(normalWorld.matches.includes("https://notebooklm.google.com/*"));
-  assert.strictEqual(manifest.version, "1.5.1");
+  assert.strictEqual(manifest.version, "1.6.0");
   assert.strictEqual(Object.hasOwn(manifest, "host_permissions"), false);
+  assert(!normalWorld.matches.some((match) => match.includes("mail.google.com")));
+  assert(!mainWorld.matches.some((match) => match.includes("chat.google.com")));
   const nonFlowMainWorld = loadMainBridge("/fx/ja/tools/imagefx");
   assert.strictEqual(nonFlowMainWorld.token, null);
 }
@@ -687,6 +1008,8 @@ function verifyLocalesAndLanguageIndependentFlowSignals() {
     expectedKeys ||= keys;
     assert.deepStrictEqual(keys, expectedKeys);
     assert.strictEqual(messages.flowShortcutNotice.message, expectedNotices[localeName]);
+    assert(messages.appDescription.message.includes("Google Chat"));
+    assert(messages.sidePanelNotice.message.includes("Google Chat"));
   }
 
   const popupHtml = fs.readFileSync(path.join(ROOT, "popup.html"), "utf8");
@@ -714,13 +1037,33 @@ function verifyLocalesAndLanguageIndependentFlowSignals() {
   const popupLogicContext = vm.createContext({ URL });
   vm.runInContext(`
     ${extractFunction("isNotebookHost")}
+    ${extractFunction("isGoogleChatHost")}
     ${extractFunction("isTargetTabUrl")}
     ${extractFunction("isGoogleFlowUrl")}
     ${extractFunction("shouldShowFlowShortcutNotice")}
     globalThis.popupLogic = {
-      isNotebookHost, isTargetTabUrl, isGoogleFlowUrl, shouldShowFlowShortcutNotice
+      isNotebookHost, isGoogleChatHost, isTargetTabUrl,
+      isGoogleFlowUrl, shouldShowFlowShortcutNotice
     };
   `, popupLogicContext);
+  for (const url of [
+    "https://chat.google.com/",
+    "https://chat.google.com/u/0/",
+    "https://chat.google.com/u/0/dm/example",
+    "https://chat.google.com/u/0/room/example",
+    "https://chat.google.com/u/0/dm/example?foo=bar"
+  ]) {
+    assert.strictEqual(popupLogicContext.popupLogic.isTargetTabUrl(url), true, url);
+  }
+  for (const url of [
+    "http://chat.google.com/",
+    "https://chat.google.com.evil.example/",
+    "https://evil-chat.google.com/",
+    "https://mail.google.com/",
+    "https://example.com/chat.google.com/"
+  ]) {
+    assert.strictEqual(popupLogicContext.popupLogic.isTargetTabUrl(url), false, url);
+  }
   for (const url of [
     "https://notebook.google.com/",
     "https://notebook.google.com",
@@ -744,6 +1087,7 @@ function verifyLocalesAndLanguageIndependentFlowSignals() {
   assert.strictEqual(popupLogicContext.popupLogic.shouldShowFlowShortcutNotice(flowUrl, true), true);
   assert.strictEqual(popupLogicContext.popupLogic.shouldShowFlowShortcutNotice(flowUrl, false), false);
   for (const url of [
+    "https://chat.google.com/",
     "https://gemini.google.com/app",
     "https://notebook.google.com/notebook/test",
     "https://notebooklm.google.com/notebook/test",
@@ -768,5 +1112,7 @@ Promise.resolve()
   .then(verifyContentLogic)
   .then(verifyManifestScope)
   .then(verifyLocalesAndLanguageIndependentFlowSignals)
-  .then(() => console.log("Local Flow, Gemini, Notebook, and manifest regression verification: PASS"))
+  .then(() => console.log(
+    "Local Flow, Gemini, Notebook, Google Chat, and manifest regression verification: PASS"
+  ))
   .catch((error) => { console.error(error); process.exitCode = 1; });

@@ -6,7 +6,7 @@
     "message": "Gemini Enter Key Control"
   },
   "appDescription": {
-    "message": "Reduce los envíos accidentales con Enter en Gemini, Gemini Notebook, anteriormente NotebookLM, y Google Flow."
+    "message": "Reduce los envíos accidentales con Enter en Gemini, Gemini Notebook, Google Flow y la versión web independiente de Google Chat."
   },
   "enableEnterControl": {
     "message": "Activar control de Enter"
@@ -48,7 +48,7 @@
     "message": "Ver extensiones de Chrome"
   },
   "sidePanelNotice": {
-    "message": "Compatible con Gemini, Gemini Notebook, anteriormente NotebookLM, y Google Flow. No se aplica al panel lateral de Gemini integrado en el navegador."
+    "message": "Compatible con Gemini, Gemini Notebook, Google Flow y la versión web independiente de Google Chat. No se aplica al panel lateral de Gemini integrado en el navegador ni a Google Chat en Gmail."
   },
   "flowShortcutNotice": {
     "message": "Actualmente, Google Flow no admite atajos de envío con la tecla Command."

@@ -6,7 +6,7 @@
     "message": "Gemini Enter Key Control"
   },
   "appDescription": {
-    "message": "Evita envíos accidentales con Enter en Gemini, Gemini Notebook, Google Flow, Google Chat en la Web y Google Chat dentro de Gmail."
+    "message": "Usa Enter para crear nuevas líneas en Gemini, Gemini Notebook, Google Flow, Google Chat y Chat dentro de Gmail."
   },
   "enableEnterControl": {
     "message": "Activar control de Enter"

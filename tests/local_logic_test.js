@@ -1131,7 +1131,7 @@ function verifyManifestScope() {
       .filter((match) => match === "https://chat.google.com/*").length,
     1
   );
-  assert.strictEqual(manifest.version, "1.6.1");
+  assert.strictEqual(manifest.version, "1.6.2");
   assert.strictEqual(Object.hasOwn(manifest, "host_permissions"), false);
   assert.strictEqual(Object.hasOwn(manifest, "web_accessible_resources"), false);
   assert(!manifest.content_scripts

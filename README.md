@@ -41,6 +41,12 @@ A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, 
 
 ## Changelog
 
+### 1.6.3
+- Fixed Gemini Notebook send shortcuts for the current chat composer DOM.
+- Finds the unique send button only inside the focused chat textarea's nearby message container, without depending on translated labels.
+- Rejects disconnected, disabled, or ambiguous send controls and excludes source discovery fields.
+- Preserved existing newline, IME, repeat-key, and Windows/macOS shortcut handling.
+
 ### 1.6.1
 - Added support for Google Chat inside Gmail.
 - Kept Gmail email composition, reply, search, subject, and forwarding fields outside the extension's scope.

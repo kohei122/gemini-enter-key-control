@@ -49,6 +49,8 @@ class ElementMock extends EventTargetMock {
     if (selectors.length > 1) return selectors.some((item) => this.matches(item));
     const classes = String(this.className || "").split(/\s+/).filter(Boolean);
     if (selector === "textarea") return this.tagName === "TEXTAREA";
+    if (selector === ".message-container") return classes.includes("message-container");
+    if (selector === "source-discovery-query-box") return this.tagName === "SOURCE-DISCOVERY-QUERY-BOX";
     if (selector === "textarea.query-box-input") {
       return this.tagName === "TEXTAREA" && classes.includes("query-box-input");
     }
@@ -575,14 +577,19 @@ globalThis.__setTestSettings = (mode, isMac) => {
 
   const makeNotebookComposer = () => {
     const form = new ElementMock("form");
+    const container = new ElementMock("div");
+    container.className = "message-container";
+    const wrapper = new ElementMock("div");
+    wrapper.className = "query-box-input-wrapper";
     const textarea = new TextareaMock();
     textarea.className = "query-box-input";
-    const button = makeButton("send");
-    button.className = "submit-button";
-    button.setAttribute("type", "submit");
-    form.append(textarea, button);
+    const button = makeButton("arrow_upward");
+    wrapper.append(textarea);
+    container.append(wrapper, button);
+    form.append(container);
     context.document.body.append(form);
-    return { form, textarea, button };
+    textarea.focus();
+    return { form, container, textarea, button };
   };
 
   assert.strictEqual(api.isNotebookHost("notebook.google.com"), true);
@@ -627,7 +634,7 @@ globalThis.__setTestSettings = (mode, isMac) => {
   const secondButton = makeButton("send two");
   secondButton.className = "submit-button";
   secondButton.setAttribute("type", "submit");
-  notebook.form.append(secondButton);
+  notebook.container.append(secondButton);
   assert.strictEqual(api.findNotebookLmSendButton(notebook.textarea), null);
 
   const notebookKeys = makeNotebookComposer();
@@ -676,6 +683,67 @@ globalThis.__setTestSettings = (mode, isMac) => {
   expectNotebookSend("combo", { shiftKey: true, ctrlKey: true });
   expectNotebookSend("shiftCmd", { shiftKey: true, metaKey: true }, true);
 
+  // Source discovery has its own form and send button on the same page.
+  const discovery = new ElementMock("source-discovery-query-box");
+  const discoveryForm = new ElementMock("form");
+  const discoveryButton = makeButton("arrow_forward");
+  const discoveryTextarea = new TextareaMock();
+  discoveryTextarea.className = "query-box-input"; // ancestor exclusion is independent of classes
+  discoveryForm.append(discoveryTextarea, discoveryButton);
+  discovery.append(discoveryForm);
+  context.document.body.append(discovery);
+  const otherComposer = makeNotebookComposer();
+  notebookKeys.textarea.focus();
+  expectNotebookSend("shift", { shiftKey: true });
+  assert.strictEqual(discoveryButton.clickCount, 0);
+  assert.strictEqual(otherComposer.button.clickCount, 0);
+  for (const target of [sourceSearch, discoverSources, discoveryTextarea, new TextareaMock()]) {
+    target.focus();
+    const captured = notebookEvent({ shiftKey: true }, { target });
+    api.handleKey(captured.event);
+    assert.strictEqual(captured.prevented, 0);
+    assert.strictEqual(target.value, "");
+    assert.strictEqual(discoveryButton.clickCount, 0);
+  }
+
+  const expectBlockedNotebookSend = (setup, restore) => {
+    notebookKeys.textarea.focus();
+    setup();
+    const before = notebookKeys.button.clickCount;
+    const captured = notebookEvent({ shiftKey: true });
+    api.handleKey(captured.event);
+    assert.strictEqual(notebookKeys.button.clickCount, before);
+    assert.strictEqual(discoveryButton.clickCount, 0);
+    assert.strictEqual(otherComposer.button.clickCount, 0);
+    assert.strictEqual(captured.prevented, 1);
+    restore();
+  };
+  expectBlockedNotebookSend(() => { notebookKeys.button.disabled = true; },
+    () => { notebookKeys.button.disabled = false; });
+  expectBlockedNotebookSend(() => notebookKeys.button.setAttribute("aria-disabled", "true"),
+    () => notebookKeys.button.removeAttribute("aria-disabled"));
+  for (const element of [notebookKeys.textarea, notebookKeys.button]) {
+    expectBlockedNotebookSend(() => { element.isConnected = false; },
+      () => { element.isConnected = true; });
+  }
+  expectBlockedNotebookSend(() => otherComposer.textarea.focus(), () => {});
+  const extraButton = makeButton("unrelated");
+  extraButton.disabled = true; // even one enabled plus one disabled button is ambiguous
+  expectBlockedNotebookSend(() => notebookKeys.container.append(extraButton),
+    () => { notebookKeys.container.children.pop(); extraButton.parentElement = null; });
+  expectBlockedNotebookSend(() => { notebookKeys.container.className = "changed"; },
+    () => { notebookKeys.container.className = "message-container"; });
+  expectBlockedNotebookSend(() => { notebookKeys.container.children.pop(); notebookKeys.form.append(notebookKeys.button); },
+    () => { notebookKeys.form.children.pop(); notebookKeys.container.append(notebookKeys.button); });
+  const extraTextarea = new TextareaMock();
+  expectBlockedNotebookSend(() => notebookKeys.container.append(extraTextarea),
+    () => { notebookKeys.container.children.pop(); extraTextarea.parentElement = null; });
+  notebookKeys.textarea.focus();
+  for (const label of ["送信", "Send", "Envoyer", ""]) {
+    notebookKeys.button.setAttribute("aria-label", label);
+    expectNotebookSend("shift", { shiftKey: true });
+  }
+
   context.__setTestSettings("shift", false);
   notebookKeys.textarea.value = "prompt";
   notebookKeys.textarea.selectionStart = notebookKeys.textarea.value.length;
@@ -700,6 +768,7 @@ globalThis.__setTestSettings = (mode, isMac) => {
 
   for (const overrides of [
     { isComposing: true },
+    { isTrusted: false },
     { keyCode: 229 }
   ]) {
     const beforeValue = notebookKeys.textarea.value;
@@ -1079,11 +1148,21 @@ globalThis.__setTestSettings = (mode, isMac) => {
   api.handleKey(bypassEvent.event);
   assert.strictEqual(bypassEvent.prevented, 0);
 
+  context.location.hostname = "notebook.google.com";
+  notebookKeys.textarea.focus();
+  context.document.dispatchEvent({ type: "compositionstart", target: notebookKeys.textarea });
+  const notebookComposition = notebookEvent({ shiftKey: true });
+  const beforeCompositionClicks = notebookKeys.button.clickCount;
+  api.handleKey(notebookComposition.event);
+  assert.strictEqual(notebookComposition.prevented, 0);
+  assert.strictEqual(notebookKeys.button.clickCount, beforeCompositionClicks);
   context.document.dispatchEvent({ type: "compositionend", target: notebookKeys.textarea });
   const graceWindow = notebookEvent({ shiftKey: true });
   api.handleKey(graceWindow.event);
   assert.strictEqual(graceWindow.prevented, 0);
+  assert.strictEqual(notebookKeys.button.clickCount, beforeCompositionClicks);
   await new Promise((resolve) => setTimeout(resolve, 90));
+  context.location.hostname = "chat.google.com";
   activeDocument.activeElement = chatKeys.editor;
   context.document.dispatchEvent({ type: "compositionstart", target: chatKeys.editor });
   const activeComposition = chatEvent({ shiftKey: true });
@@ -1131,7 +1210,7 @@ function verifyManifestScope() {
       .filter((match) => match === "https://chat.google.com/*").length,
     1
   );
-  assert.strictEqual(manifest.version, "1.6.2");
+  assert.strictEqual(manifest.version, "1.6.3");
   assert.strictEqual(Object.hasOwn(manifest, "host_permissions"), false);
   assert.strictEqual(Object.hasOwn(manifest, "web_accessible_resources"), false);
   assert(!manifest.content_scripts

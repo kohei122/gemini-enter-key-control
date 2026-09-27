@@ -71,7 +71,6 @@ const GOOGLE_CHAT_EMBEDDED_ROOT_MAX_ANCESTOR_DEPTH = 18;
 const NOTEBOOKLM_CHAT_TEXTAREA_SELECTOR = "textarea.query-box-input";
 const NOTEBOOKLM_EXCLUDED_TEXTAREA_SELECTOR =
   'textarea.query-box-textarea, textarea[formcontrolname="discoverSourcesQuery"]';
-const NOTEBOOKLM_SEND_BUTTON_SELECTOR = 'button.submit-button[type="submit"]';
 const SEND_BUTTON_SELECTORS = [
   "button"
 ];
@@ -582,6 +581,7 @@ function getNotebookLmChatTextarea(target) {
 
   const textarea = element.matches("textarea") ? element : element.closest("textarea");
   if (!(textarea instanceof HTMLTextAreaElement)) return null;
+  if (textarea.closest("source-discovery-query-box")) return null;
   if (textarea.matches(NOTEBOOKLM_EXCLUDED_TEXTAREA_SELECTOR)) return null;
   if (!textarea.matches(NOTEBOOKLM_CHAT_TEXTAREA_SELECTOR)) return null;
 
@@ -1903,13 +1903,20 @@ function insertFlowLineBreak(textbox) {
 }
 
 function findNotebookLmSendButton(textarea) {
-  const form = textarea.closest("form");
-  if (!form) return null;
+  if (getNotebookLmChatTextarea(textarea) !== textarea) return null;
+  if (!textarea.isConnected || document.activeElement !== textarea) return null;
 
-  const buttons = form.querySelectorAll(NOTEBOOKLM_SEND_BUTTON_SELECTOR);
+  const form = textarea.closest("form");
+  const container = textarea.closest(".message-container");
+  if (!form || !container || !form.contains(container)) return null;
+  if (container.querySelectorAll("textarea").length !== 1) return null;
+
+  // Fail closed on ambiguous UI; never search another composer or form.
+  const buttons = container.querySelectorAll("button");
   if (buttons.length !== 1) return null;
 
   const button = buttons[0];
+  if (!button.isConnected || button.closest("form") !== form) return null;
   if (button.matches(".actions-enter-button")) return null;
   if (!isElementVisible(button)) return null;
   if (isElementDisabled(button)) return null;

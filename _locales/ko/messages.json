@@ -52,5 +52,38 @@
   },
   "flowShortcutNotice": {
     "message": "Google Flow에서는 현재 Command 키를 사용한 전송을 지원하지 않습니다."
+  },
+  "googleAiModeEnable": {
+    "message": "Google AI 검색에서도 사용"
+  },
+  "googleAiModeNote": {
+    "message": "Google AI 검색에서도 Enter 줄바꿈과 단축키 전송을 사용할 수 있습니다.\ngoogle.com 사이트 접근 권한이 필요합니다. 입력 내용과 검색 내용은 수집하지 않습니다."
+  },
+  "googleAiModeDenied": {
+    "message": "권한이 허용되지 않아 AI Mode가 꺼진 상태로 유지됩니다."
+  },
+  "googleAiModeError": {
+    "message": "AI Mode 설정을 변경하지 못했습니다. 다시 시도해 주세요."
+  },
+  "detailsLabel": {
+    "message": "상세 설정"
+  },
+  "servicesTitle": {
+    "message": "지원 서비스"
+  },
+  "googleAiServiceName": {
+    "message": "Google AI 검색"
+  },
+  "flowAccessNote": {
+    "message": "현재 Google Flow를 사용하려면 사이트 접근 권한이 필요합니다."
+  },
+  "flowAccessEnable": {
+    "message": "현재 Flow 활성화"
+  },
+  "flowAccessDenied": {
+    "message": "접근이 허용되지 않았습니다. 기존 Flow만 활성화됩니다."
+  },
+  "serviceError": {
+    "message": "설정을 변경하지 못했습니다. 다시 시도해 주세요."
   }
 }

@@ -10,6 +10,32 @@ A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, 
 - Supports Gemini Notebook on both `notebook.google.com` and the legacy `notebooklm.google.com` domain
 - Supports the Google Chat web app and Google Chat inside Gmail
 
+## Service controls
+
+- The popup has separate switches for Gemini, Gemini Notebook, Google Chat, Google Flow, and Google AI Search. Existing services default to on only when their setting is missing; saved off settings are preserved.
+- The master switch temporarily stops all handling while retaining service selections and optional site permissions.
+- A service switched off leaves the site's native keyboard behavior intact. Static scripts remain installed on existing supported hosts, but skip handling and cancel their pending input/focus actions.
+
+## Current Google Flow (optional)
+
+- Existing `labs.google/fx` Flow support remains enabled by default. Current Flow at `https://flow.google.com/project/<project-id>` requires separate optional site access.
+- Use **Enable current Flow** beside the Flow switch to grant access. Opening the popup does not request permission. Turning Flow back on also asks for current Flow access; declining keeps legacy Flow enabled and current Flow inactive.
+- Turning Flow off stops both hosts, unregisters the current Flow script, and releases only the Flow site permission. Revoking access externally disables current Flow without changing the legacy selection.
+- The dedicated isolated script handles only a focused, unique ProseMirror editor inside `flow-rich-text-editor` and `flow-base-prompt-box`, with one submit button in that same box. Other or ambiguous editors are ignored.
+- Plain Enter dispatches synthetic Shift+Enter so Flow creates its own line break. Send shortcuts synchronously click the same box's submit button. There are no DOM-editing or alternative-send fallbacks. IME, repeat-key, and synthetic-event guards prevent duplicate handling.
+- Current Flow shares all send modes, including Mac Command shortcuts. The older Flow implementation and its Mac limitations are unchanged. Google UI changes can require future selector updates.
+
+## Google Search AI Mode (optional)
+
+- Enable Google AI Mode in the popup and allow access to `https://www.google.com/*`. This access is optional; existing services do not require it.
+- Shares the existing master switch and send-key mode, including Mac Cmd shortcuts.
+- Controls only a focused AI Mode conversation textarea on `/search` with `udm=50` and a unique nearby text-send button. Regular Search, feedback fields, and voice-send controls are excluded.
+- Turning the AI Mode option off stops handling, removes its dynamic script registration, and releases the optional site permission. Revoking site access also disables the option.
+- Uses an isolated content script; no input is collected, stored, logged, or sent to an external service by the extension.
+- Initial support is limited to `www.google.com`. Other entry URLs (including `/ai` before redirection) and changed or ambiguous composer structures are left untouched.
+- The composer currently requires `maxlength="8192"` plus a unique nearby `data-xid="input-plate-send-button"` within six ancestors. These are internal Google UI details and may change.
+- After reloading/updating the extension during local testing, reload existing Google tabs before testing the new version.
+
 ## Google Chat
 
 - Plain Enter inserts a newline, and the selected send shortcut sends the message.
@@ -40,6 +66,13 @@ A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, 
 3. Start using Gemini with improved input behavior  
 
 ## Changelog
+
+### 1.6.4
+- Added per-service switches and optional current Google Flow support, with separate host permissions and script lifecycle management.
+- Added opt-in Google Search AI Mode support with optional site access and dedicated dynamic content scripts.
+- Added permission management and an enable/disable option in all seven UI languages.
+- Preserved existing service injection and key handling, with no new required host permissions.
+- Added tests for AI Mode composer safety, shortcuts, IME, permissions, script lifecycle, and popup behavior.
 
 ### 1.6.3
 - Fixed Gemini Notebook send shortcuts for the current chat composer DOM.
@@ -127,6 +160,9 @@ A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, 
 ## Developer
 
 Developed by Marushin
+
+Run local regression checks with `node tests/local_logic_test.js`, `node tests/google_ai_mode_test.js`, and `node tests/service_controls_test.js`.
+Before release, verify the installed extension in Chrome: permission accept/deny, master and AI Mode toggles, revocation, restart/update, existing tabs, normal Search/AI Mode transitions, all shortcut modes, IME confirmation, held keys, and feedback/voice controls. Automated DOM mocks do not establish live browser compatibility.
 
 ## Note
 

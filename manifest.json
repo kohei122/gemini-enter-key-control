@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "default_locale": "en",
   "name": "__MSG_appName__",
-  "version": "1.6.3",
+  "version": "1.6.4",
   "description": "__MSG_appDescription__",
   "icons": {
     "16": "icon16.png",
@@ -14,6 +14,8 @@
     "activeTab",
     "scripting"
   ],
+  "optional_host_permissions": ["https://www.google.com/*", "https://flow.google.com/*"],
+  "background": { "service_worker": "service_worker.js" },
   "action": {
     "default_title": "__MSG_appName__",
     "default_popup": "popup.html",

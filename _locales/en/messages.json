@@ -52,5 +52,38 @@
   },
   "flowShortcutNotice": {
     "message": "Command-key sending shortcuts are currently not supported in Google Flow."
+  },
+  "googleAiModeEnable": {
+    "message": "Google AI Search"
+  },
+  "googleAiModeNote": {
+    "message": "Use Enter for new lines and a shortcut to send in Google AI Search.\nSite access to google.com is required. Your input and searches are not collected."
+  },
+  "googleAiModeDenied": {
+    "message": "Permission was not granted. AI Mode remains off."
+  },
+  "googleAiModeError": {
+    "message": "Could not update AI Mode. Please try again."
+  },
+  "detailsLabel": {
+    "message": "Details"
+  },
+  "servicesTitle": {
+    "message": "Services"
+  },
+  "googleAiServiceName": {
+    "message": "Google AI Search"
+  },
+  "flowAccessNote": {
+    "message": "Site access is required for the current Google Flow."
+  },
+  "flowAccessEnable": {
+    "message": "Enable current Flow"
+  },
+  "flowAccessDenied": {
+    "message": "Access was not granted. Only legacy Flow is enabled."
+  },
+  "serviceError": {
+    "message": "Could not update settings. Please try again."
   }
 }

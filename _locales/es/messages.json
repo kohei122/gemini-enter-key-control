@@ -52,5 +52,38 @@
   },
   "flowShortcutNotice": {
     "message": "Actualmente, Google Flow no admite atajos de envío con la tecla Command."
+  },
+  "googleAiModeEnable": {
+    "message": "Búsqueda IA de Google"
+  },
+  "googleAiModeNote": {
+    "message": "Usa Enter para saltos de línea y un atajo para enviar en la Búsqueda IA de Google.\nSe necesita acceso al sitio google.com. No se recopilan lo que escribes ni tus búsquedas."
+  },
+  "googleAiModeDenied": {
+    "message": "No se concedió el permiso. AI Mode sigue desactivado."
+  },
+  "googleAiModeError": {
+    "message": "No se pudo actualizar AI Mode. Inténtalo de nuevo."
+  },
+  "detailsLabel": {
+    "message": "Detalles"
+  },
+  "servicesTitle": {
+    "message": "Servicios"
+  },
+  "googleAiServiceName": {
+    "message": "Búsqueda IA de Google"
+  },
+  "flowAccessNote": {
+    "message": "Se necesita acceso al sitio para usar el Google Flow actual."
+  },
+  "flowAccessEnable": {
+    "message": "Activar Flow actual"
+  },
+  "flowAccessDenied": {
+    "message": "No se concedió acceso. Solo está activo el Flow anterior."
+  },
+  "serviceError": {
+    "message": "No se pudo actualizar la configuración. Inténtalo de nuevo."
   }
 }

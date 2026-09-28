@@ -52,5 +52,38 @@
   },
   "flowShortcutNotice": {
     "message": "Google Flowでは、Commandキーを使った送信には現在対応していません。"
+  },
+  "googleAiModeEnable": {
+    "message": "Google AI検索でも有効"
+  },
+  "googleAiModeNote": {
+    "message": "Google AI検索でもEnter改行・ショートカット送信を使えます。\ngoogle.comへのアクセス権限が必要です。入力・検索内容は収集しません。"
+  },
+  "googleAiModeDenied": {
+    "message": "許可されなかったため、AI ModeはOFFのままです。"
+  },
+  "googleAiModeError": {
+    "message": "AI Modeの設定を更新できませんでした。再度お試しください。"
+  },
+  "detailsLabel": {
+    "message": "詳細"
+  },
+  "servicesTitle": {
+    "message": "対応サービス"
+  },
+  "googleAiServiceName": {
+    "message": "Google AI検索"
+  },
+  "flowAccessNote": {
+    "message": "現在のGoogle Flowを利用するにはアクセス権限が必要です。"
+  },
+  "flowAccessEnable": {
+    "message": "現在のFlowを有効にする"
+  },
+  "flowAccessDenied": {
+    "message": "アクセスは許可されませんでした。従来のFlowのみ有効です。"
+  },
+  "serviceError": {
+    "message": "設定を更新できませんでした。再度お試しください。"
   }
 }

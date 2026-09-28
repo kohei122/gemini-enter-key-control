@@ -52,5 +52,38 @@
   },
   "flowShortcutNotice": {
     "message": "Google Flow 目前不支援使用 Command 鍵傳送。"
+  },
+  "googleAiModeEnable": {
+    "message": "也用於 Google AI 搜尋"
+  },
+  "googleAiModeNote": {
+    "message": "在 Google AI 搜尋中也可使用 Enter 換行和快捷鍵傳送。\n需要 google.com 的網站存取權限。不會蒐集輸入內容或搜尋內容。"
+  },
+  "googleAiModeDenied": {
+    "message": "未取得權限，AI Mode 維持關閉。"
+  },
+  "googleAiModeError": {
+    "message": "無法更新 AI Mode 設定，請再試一次。"
+  },
+  "detailsLabel": {
+    "message": "詳細設定"
+  },
+  "servicesTitle": {
+    "message": "支援的服務"
+  },
+  "googleAiServiceName": {
+    "message": "Google AI 搜尋"
+  },
+  "flowAccessNote": {
+    "message": "使用目前的 Google Flow 需要網站存取權限。"
+  },
+  "flowAccessEnable": {
+    "message": "啟用目前的 Flow"
+  },
+  "flowAccessDenied": {
+    "message": "未取得存取權限。僅啟用舊版 Flow。"
+  },
+  "serviceError": {
+    "message": "無法更新設定，請再試一次。"
   }
 }

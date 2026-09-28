@@ -10,6 +10,8 @@
       margin: 0;
       padding: 12px;
       box-sizing: border-box;
+      max-height: 580px;
+      overflow-y: auto;
     }
 
     .section {
@@ -28,6 +30,24 @@
       line-height: 1.35;
       color: #666;
     }
+
+    .google-ai-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 20px;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .service-toggle { margin: 0; justify-self: center; }
+    #flow-access[hidden] { display: none; }
+    #flow-access { margin: 4px 0 10px; }
+    #flow-access-button { margin-top: 4px; font-size: 11px; cursor: pointer; }
+
+    #google-ai-mode-toggle { margin: 0; justify-self: center; }
+    #google-ai-mode-note { white-space: pre-line; overflow-wrap: anywhere; margin-top: 0; line-height: 1.5; }
+    #google-ai-mode-status:empty { display: none; }
 
     .flow-shortcut-notice {
       margin-top: 8px;
@@ -86,7 +106,7 @@
     }
 
     .secondary-content.open {
-      max-height: 240px;
+      max-height: none;
       opacity: 1;
       margin-top: 8px;
     }
@@ -119,7 +139,8 @@
 
     .other-extensions {
       display: block;
-      margin-top: 8px;
+      min-width: 0;
+      overflow-wrap: anywhere;
       font-size: 12px;
       color: #1a73e8;
       text-decoration: none;
@@ -131,10 +152,20 @@
     }
 
     .version-row {
-      margin-top: 8px;
+      margin-left: auto;
+      white-space: nowrap;
       font-size: 12px;
       color: #444;
       line-height: 1.4;
+    }
+
+    .popup-footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px 12px;
+      margin-top: 10px;
     }
   </style>
 </head>
@@ -158,11 +189,33 @@
 
   <hr>
 
+  <div class="section">
+    <div class="title" data-i18n="servicesTitle"></div>
+    <div class="google-ai-row"><span id="gemini-service-title">Gemini</span><input class="service-toggle" type="checkbox" id="gemini-service-toggle" aria-labelledby="gemini-service-title" disabled></div>
+    <div class="google-ai-row"><span id="notebook-service-title">Gemini Notebook</span><input class="service-toggle" type="checkbox" id="notebook-service-toggle" aria-labelledby="notebook-service-title" disabled></div>
+    <div class="google-ai-row"><span id="chat-service-title">Google Chat</span><input class="service-toggle" type="checkbox" id="chat-service-toggle" aria-labelledby="chat-service-title" disabled></div>
+    <div class="google-ai-row"><span id="flow-service-title">Google Flow</span><input class="service-toggle" type="checkbox" id="flow-service-toggle" aria-labelledby="flow-service-title" disabled></div>
+    <div id="flow-access" class="support-note" hidden>
+      <div data-i18n="flowAccessNote"></div>
+      <button id="flow-access-button" type="button" data-i18n="flowAccessEnable"></button>
+    </div>
+    <div id="service-status" class="support-note" role="status" aria-live="polite"></div>
+    <div class="google-ai-row">
+      <span id="google-ai-mode-title" data-i18n="googleAiServiceName"></span>
+      <input type="checkbox" id="google-ai-mode-toggle" disabled aria-labelledby="google-ai-mode-title" aria-describedby="google-ai-mode-note">
+    </div>
+    <div class="support-note" id="google-ai-mode-status" role="status" aria-live="polite"></div>
+  </div>
+
   <div class="secondary-toggle-wrap" id="secondary-toggle-wrap">
-    <button id="secondary-toggle" class="secondary-toggle" type="button" aria-expanded="false" aria-label="Open secondary settings">&#9660;</button>
+    <button id="secondary-toggle" class="secondary-toggle" type="button" aria-expanded="false"><span data-i18n="detailsLabel"></span> <span aria-hidden="true">▼</span></button>
   </div>
 
   <div class="secondary-content" id="secondary-content">
+    <div class="section">
+      <div class="support-note" id="google-ai-mode-note" data-i18n="googleAiModeNote"></div>
+    </div>
+
     <div class="language-setting-row">
       <span class="language-setting-label" id="language-setting-label"></span>
       <select id="language-select" class="language-select" aria-label="Language setting">
@@ -177,10 +230,10 @@
       </select>
     </div>
 
-    <a class="other-extensions" id="other-extensions-link" href="#"></a>
-
-    <div class="version-row" id="app-version">v</div>
-    <div class="support-note" id="side-panel-notice"></div>
+    <div class="popup-footer">
+      <a class="other-extensions" id="other-extensions-link" href="#"></a>
+      <div class="version-row" id="app-version">v</div>
+    </div>
   </div>
 
   <script src="popup.js"></script>

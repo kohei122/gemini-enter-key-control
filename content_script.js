@@ -300,6 +300,26 @@ const FLOW_EXCLUDED_BUTTON_TEXT_PATTERNS = [
 ];
 
 let settings = { ...DEFAULT_SETTINGS };
+const SERVICE_DEFAULTS = { geminiEnabled: true, notebookEnabled: true, googleChatEnabled: true, flowEnabled: true };
+let serviceSettings = { ...SERVICE_DEFAULTS };
+let serviceEpoch = 0;
+function currentServiceKey() {
+  return location.hostname === "gemini.google.com" ? "geminiEnabled" :
+    isNotebookHost(location.hostname) ? "notebookEnabled" :
+    isGoogleChatHost(location.hostname) ? "googleChatEnabled" :
+    isGoogleFlowPage() ? "flowEnabled" : null;
+}
+function currentServiceEnabled() {
+  const key = currentServiceKey();
+  return settings.enabled && key !== null && serviceSettings[key];
+}
+function scheduleControlled(callback, delay) {
+  const epoch = serviceEpoch;
+  return setTimeout(() => {
+    if (epoch === serviceEpoch && currentServiceEnabled()) callback();
+  }, delay);
+}
+
 let rawStoredSettings = null;
 let settingsLoaded = false;
 let isMacPlatform = false;
@@ -362,6 +382,9 @@ async function loadSettings() {
       enabled: sanitizeEnabled(stored.enabled),
       mode: sanitizeModeForPlatform(stored.mode, isMacPlatform)
     };
+    for (const key of Object.keys(SERVICE_DEFAULTS)) {
+      serviceSettings[key] = Object.hasOwn(stored, key) ? sanitizeEnabled(stored[key]) : true;
+    }
     settings = next;
     settingsLoaded = true;
     logFlowAction("settings loaded", {
@@ -377,6 +400,16 @@ loadSettings();
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;
 
+  if ("enabled" in changes || currentServiceKey() in changes) {
+    serviceEpoch++;
+    isComposingActive = false;
+    lastCompositionEndAt = 0;
+    isDispatchingSyntheticEnter = false;
+    isFlowSendLocked = false;
+  }
+  for (const key of Object.keys(SERVICE_DEFAULTS)) {
+    if (key in changes) serviceSettings[key] = sanitizeEnabled(changes[key].newValue);
+  }
   rawStoredSettings ??= {};
 
   if (changes.enabled) {
@@ -883,7 +916,7 @@ function logSendButtonCandidates(textbox, candidates, selectedButton) {
 }
 
 function dispatchSyntheticShiftEnter(textbox, shouldFocus = true) {
-  setTimeout(() => {
+  scheduleControlled(() => {
     if (!textbox?.isConnected) return;
     if (shouldFocus) textbox.focus();
     isDispatchingSyntheticEnter = true;
@@ -900,7 +933,7 @@ function dispatchSyntheticShiftEnter(textbox, shouldFocus = true) {
       textbox.dispatchEvent(synthetic);
     } finally {
       // Prevent accidental self-recursion if future browser behavior changes.
-      setTimeout(() => {
+      scheduleControlled(() => {
         isDispatchingSyntheticEnter = false;
       }, 0);
     }
@@ -908,6 +941,7 @@ function dispatchSyntheticShiftEnter(textbox, shouldFocus = true) {
 }
 
 function sendMessageByButton(textbox) {
+  if (!currentServiceEnabled()) return false;
   const shouldLog = DEBUG_LOG_GEMINI_SEND_BUTTON_CANDIDATES &&
     location.hostname === "gemini.google.com";
   const candidates = shouldLog ? collectSendButtonCandidates(textbox) : null;
@@ -1444,6 +1478,7 @@ function dispatchFlowSyntheticEnter(textbox) {
 }
 
 function executeFlowSendStrategy(textbox, button) {
+  if (!currentServiceEnabled()) return false;
   if (!FLOW_SEND_STRATEGIES.includes(FLOW_SEND_STRATEGY)) {
     return { executed: false, reason: "unknown Flow send strategy" };
   }
@@ -1510,6 +1545,7 @@ function restoreFlowCaret(textbox) {
 }
 
 function restoreFlowTextboxFocus(textbox, reason) {
+  if (!currentServiceEnabled()) return false;
   if (!(textbox instanceof HTMLElement) || !textbox.isConnected || !isElementVisible(textbox)) {
     return false;
   }
@@ -1536,7 +1572,7 @@ function inspectFlowTrustedKeyHandoffAfterDelay(
   let settled = false;
 
   FLOW_FOCUS_RESTORE_DELAYS_MS.forEach((delayMs, index) => {
-    setTimeout(() => {
+    scheduleControlled(() => {
       if (settled) return;
 
       const latestTextbox = findLatestFlowTextbox();
@@ -1619,6 +1655,7 @@ function inspectFlowTrustedKeyHandoffAfterDelay(
 }
 
 function requestFlowReactHandlerSend(event, textbox, button) {
+  if (!currentServiceEnabled()) return false;
   if (!flowReactBridgeToken) {
     logFlowWarning("React handler send unavailable", {
       reason: "MAIN world bridge unavailable"
@@ -1641,6 +1678,7 @@ function requestFlowReactHandlerSend(event, textbox, button) {
   }
 
   isFlowSendLocked = true;
+  const epoch = serviceEpoch;
   const requestId = createFlowReactRequestId();
   const beforeState = getFlowHandoffState(textbox, button);
   let responded = false;
@@ -1660,6 +1698,7 @@ function requestFlowReactHandlerSend(event, textbox, button) {
     if (responded) return;
     responded = true;
     cleanup();
+    if (epoch !== serviceEpoch || !currentServiceEnabled()) return;
     logFlowAction("React handler invocation result", {
       invoked: detail.invoked === true,
       phase: detail.phase || FLOW_REACT_HANDLER_PHASE,
@@ -1722,6 +1761,7 @@ function requestFlowReactHandlerSend(event, textbox, button) {
     if (responded) return;
     responded = true;
     cleanup();
+    if (epoch !== serviceEpoch || !currentServiceEnabled()) return;
     logFlowWarning("React handler send failed", {
       reason: "MAIN world bridge response timeout"
     });
@@ -1735,6 +1775,7 @@ function requestFlowReactHandlerSend(event, textbox, button) {
 }
 
 function executeFlowTrustedKeyHandoff(event, textbox, button) {
+  if (!currentServiceEnabled()) return false;
   if (isFlowSendLocked) {
     logFlowAction("trusted key handoff send lock active", {
       originalEventIsTrusted: event.isTrusted,
@@ -1790,7 +1831,7 @@ function executeFlowTrustedKeyHandoff(event, textbox, button) {
 }
 
 function releaseFlowSendLockAfterDelay() {
-  setTimeout(() => {
+  scheduleControlled(() => {
     isFlowSendLocked = false;
     logFlowAction("send lock released");
   }, FLOW_SEND_LOCK_MS);
@@ -1811,7 +1852,7 @@ function scheduleFlowGenerate(textbox) {
     sendLockActive: isFlowSendLocked
   });
 
-  setTimeout(() => {
+  scheduleControlled(() => {
     const currentTextbox = getCurrentFlowTextbox(textbox);
     const button = currentTextbox ? findFlowGenerateButton(currentTextbox) : null;
     const form = getFlowButtonForm(button);
@@ -1976,6 +2017,7 @@ function insertNewlineByExecCommand(textbox) {
 }
 
 function getControlledInput(target) {
+  if (!currentServiceEnabled()) return { notebookLmTextarea: null, googleChatEditor: null, flowTextbox: null, textbox: null };
   const notebookLmTextarea = getNotebookLmChatTextarea(target);
   if (notebookLmTextarea) {
     return {
@@ -2046,7 +2088,7 @@ function restoreGeminiTextboxFocusAfterSend() {
   if (!DEBUG_RESTORE_FOCUS_AFTER_GEMINI_SEND) return;
 
   for (const delay of [0, 50, 150, 300]) {
-    setTimeout(() => {
+    scheduleControlled(() => {
       const textbox = getCurrentGeminiTextbox();
       if (!textbox) return;
       textbox.focus();
@@ -2120,6 +2162,7 @@ function isFlowTrustedNativeReactShortcut(event, mode) {
 }
 
 function handleKey(event) {
+  if (!currentServiceEnabled()) return;
   if (isDispatchingSyntheticEnter) return;
   if (isDispatchingSyntheticFlowEnter && !event.isTrusted) {
     logFlowAction("synthetic Flow Enter observed by extension capture listener", {

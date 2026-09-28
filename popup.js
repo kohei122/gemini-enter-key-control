@@ -60,7 +60,6 @@ const secondaryContent = document.getElementById("secondary-content");
 const otherExtensionsLink = document.getElementById("other-extensions-link");
 const languageSettingLabel = document.getElementById("language-setting-label");
 const languageSelect = document.getElementById("language-select");
-const sidePanelNotice = document.getElementById("side-panel-notice");
 const flowShortcutNotice = document.getElementById("flow-shortcut-notice");
 const i18nElements = document.querySelectorAll("[data-i18n]");
 let isMacPlatform = false;
@@ -116,12 +115,8 @@ function applyPopupTexts(forcedMessages, isMac) {
     otherExtensionsLink.textContent = getMessage("otherExtensions", forcedMessages);
   }
 
-  if (sidePanelNotice) {
-    sidePanelNotice.textContent = getMessage("sidePanelNotice", forcedMessages);
-  }
-
   if (appVersion) {
-    appVersion.textContent = `${getMessage("versionLabel", forcedMessages)} v${chrome.runtime.getManifest().version}`;
+    appVersion.textContent = `v${chrome.runtime.getManifest().version}`;
   }
 
   i18nElements.forEach((element) => {
@@ -311,6 +306,8 @@ async function initializePopup() {
   setupLanguageSelect(forceLang);
   setupOtherExtensionsLink();
   applyPopupTexts(forcedMessages, isMac);
+  setupGoogleAiMode(forcedMessages);
+  setupServiceControls(forcedMessages);
 
   chrome.storage.local.get(DEFAULT_SETTINGS, (stored) => {
     const mode = sanitizeModeForPlatform(stored.mode, isMac);
@@ -333,6 +330,111 @@ async function initializePopup() {
     chrome.storage.local.set(settings, () => {
       logStoredSettings("settings stored after initialization");
     });
+  });
+}
+
+async function setupServiceControls(forcedMessages) {
+  const simple = { "gemini-service-toggle": "geminiEnabled", "notebook-service-toggle": "notebookEnabled", "chat-service-toggle": "googleChatEnabled" };
+  const flow = document.getElementById("flow-service-toggle");
+  const access = document.getElementById("flow-access");
+  const button = document.getElementById("flow-access-button");
+  const status = document.getElementById("service-status");
+  const origins = ["https://flow.google.com/*"];
+  const show = key => { status.textContent = key ? getMessage(key, forcedMessages) : ""; };
+  try {
+    const stored = await chrome.storage.local.get({ geminiEnabled: true, notebookEnabled: true, googleChatEnabled: true, flowEnabled: true, flowCurrentEnabled: false });
+    for (const [id, key] of Object.entries(simple)) {
+      const control = document.getElementById(id);
+      control.checked = sanitizeEnabled(stored[key]);
+      control.disabled = false;
+      control.addEventListener("click", async () => {
+        control.disabled = true;
+        try { await chrome.storage.local.set({ [key]: control.checked }); show(""); }
+        catch { control.checked = !control.checked; show("serviceError"); }
+        finally { control.disabled = false; }
+      });
+    }
+    flow.checked = sanitizeEnabled(stored.flowEnabled);
+    const granted = await chrome.permissions.contains({ origins });
+    access.hidden = !flow.checked || (stored.flowCurrentEnabled === true && granted);
+    flow.disabled = false;
+  } catch { show("serviceError"); return; }
+  async function enableCurrent() {
+    flow.disabled = button.disabled = true;
+    show("");
+    try {
+      // Invoked directly by either ON or the access button. A denial retains
+      // the legacy service selection, with the current host explicitly inactive.
+      const granted = await chrome.permissions.request({ origins });
+      await chrome.storage.local.set({ flowEnabled: true, flowCurrentEnabled: granted });
+      flow.checked = true;
+      access.hidden = granted;
+      if (!granted) { show("flowAccessDenied"); return; }
+      const result = await chrome.runtime.sendMessage({ type: "gec-flow-sync" });
+      if (!result?.ok) throw new Error("Flow registration failed");
+    } catch {
+      await chrome.storage.local.set({ flowCurrentEnabled: false }).catch(() => {});
+      await chrome.permissions.remove({ origins }).catch(() => {});
+      const stored = await chrome.storage.local.get({ flowEnabled: true }).catch(() => null);
+      if (stored) flow.checked = sanitizeEnabled(stored.flowEnabled);
+      access.hidden = !flow.checked;
+      show("serviceError");
+    } finally { flow.disabled = button.disabled = false; }
+  }
+  button.addEventListener("click", enableCurrent);
+  flow.addEventListener("click", async () => {
+    if (flow.checked) { await enableCurrent(); return; }
+    flow.disabled = button.disabled = true;
+    show("");
+    try {
+      await chrome.storage.local.set({ flowEnabled: false, flowCurrentEnabled: false });
+      const result = await chrome.runtime.sendMessage({ type: "gec-flow-disable" });
+      if (!result?.ok) throw new Error("Flow disable failed");
+    } catch {
+      const stored = await chrome.storage.local.get({ flowEnabled: true }).catch(() => null);
+      if (stored) flow.checked = sanitizeEnabled(stored.flowEnabled);
+      show("serviceError");
+    } finally { access.hidden = !flow.checked; flow.disabled = button.disabled = false; }
+  });
+}
+
+async function setupGoogleAiMode(forcedMessages) {
+  const control = document.getElementById("google-ai-mode-toggle");
+  const status = document.getElementById("google-ai-mode-status");
+  if (!control || !status) return;
+  const origins = ["https://www.google.com/*"];
+  const show = key => { status.textContent = key ? getMessage(key, forcedMessages) : ""; };
+  try {
+    const [stored, granted] = await Promise.all([
+      chrome.storage.local.get({ googleAiModeEnabled: false }),
+      chrome.permissions.contains({ origins })
+    ]);
+    control.checked = stored.googleAiModeEnabled === true && granted;
+    control.disabled = false;
+  } catch { show("googleAiModeError"); return; }
+  control.addEventListener("click", async () => {
+    const wanted = control.checked;
+    control.disabled = true;
+    show("");
+    try {
+      // Call directly from the user's click, before any other async work.
+      const granted = wanted ? await chrome.permissions.request({ origins }) : false;
+      if (wanted && !granted) {
+        await chrome.storage.local.set({ googleAiModeEnabled: false });
+        control.checked = false;
+        show("googleAiModeDenied");
+        return;
+      }
+      if (wanted) await chrome.storage.local.set({ googleAiModeEnabled: true });
+      const result = await chrome.runtime.sendMessage({ type: wanted ? "gec-ai-sync" : "gec-ai-disable" });
+      if (!result?.ok) throw new Error("AI Mode setup failed");
+      control.checked = wanted;
+    } catch {
+      control.checked = false;
+      await chrome.storage.local.set({ googleAiModeEnabled: false }).catch(() => {});
+      await chrome.runtime.sendMessage({ type: "gec-ai-disable" }).catch(() => {});
+      show("googleAiModeError");
+    } finally { control.disabled = false; }
   });
 }
 

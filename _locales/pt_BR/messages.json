@@ -56,8 +56,8 @@
   "googleAiModeEnable": {
     "message": "Busca com IA do Google"
   },
-  "googleAiModeNote": {
-    "message": "Use Enter para quebras de linha e um atalho para enviar na Busca com IA do Google.\nÉ necessário acesso ao site google.com. O que você digita e suas pesquisas não são coletados."
+  "serviceAccessNote": {
+    "message": "Para usar Enter para quebras de linha e atalhos para enviar, é necessário acesso ao site de cada serviço. Este aplicativo não coleta o que você digita nem suas pesquisas."
   },
   "googleAiModeDenied": {
     "message": "A permissão não foi concedida. O AI Mode continua desativado."

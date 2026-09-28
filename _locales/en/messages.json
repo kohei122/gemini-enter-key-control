@@ -56,8 +56,8 @@
   "googleAiModeEnable": {
     "message": "Google AI Search"
   },
-  "googleAiModeNote": {
-    "message": "Use Enter for new lines and a shortcut to send in Google AI Search.\nSite access to google.com is required. Your input and searches are not collected."
+  "serviceAccessNote": {
+    "message": "Using Enter for new lines and shortcuts to send requires site access to each service. This app does not collect your input or searches."
   },
   "googleAiModeDenied": {
     "message": "Permission was not granted. AI Mode remains off."

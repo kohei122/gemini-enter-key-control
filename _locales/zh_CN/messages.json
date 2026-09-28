@@ -56,8 +56,8 @@
   "googleAiModeEnable": {
     "message": "也用于 Google AI 搜索"
   },
-  "googleAiModeNote": {
-    "message": "在 Google AI 搜索中也可使用 Enter 换行和快捷键发送。\n需要 google.com 的网站访问权限。不会收集输入内容或搜索内容。"
+  "serviceAccessNote": {
+    "message": "在各项服务中使用 Enter 换行和快捷键发送，需要相应服务的网站访问权限。此应用不会收集您的输入内容或搜索内容。"
   },
   "googleAiModeDenied": {
     "message": "未获得权限，AI Mode 保持关闭。"

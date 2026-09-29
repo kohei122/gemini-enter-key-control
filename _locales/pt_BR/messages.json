@@ -56,9 +56,6 @@
   "googleAiModeEnable": {
     "message": "Busca com IA do Google"
   },
-  "serviceAccessNote": {
-    "message": "Para usar Enter para quebras de linha e atalhos para enviar, é necessário acesso ao site de cada serviço. Este aplicativo não coleta o que você digita nem suas pesquisas."
-  },
   "googleAiModeDenied": {
     "message": "A permissão não foi concedida. O AI Mode continua desativado."
   },
@@ -85,5 +82,8 @@
   },
   "serviceError": {
     "message": "Não foi possível atualizar as configurações. Tente novamente."
+  },
+  "flowShiftOnlyNotice": {
+    "message": "O Google Flow só está disponível com Shift+Enter."
   }
 }

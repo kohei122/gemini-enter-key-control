@@ -56,9 +56,6 @@
   "googleAiModeEnable": {
     "message": "也用于 Google AI 搜索"
   },
-  "serviceAccessNote": {
-    "message": "在各项服务中使用 Enter 换行和快捷键发送，需要相应服务的网站访问权限。此应用不会收集您的输入内容或搜索内容。"
-  },
   "googleAiModeDenied": {
     "message": "未获得权限，AI Mode 保持关闭。"
   },
@@ -85,5 +82,8 @@
   },
   "serviceError": {
     "message": "无法更新设置，请重试。"
+  },
+  "flowShiftOnlyNotice": {
+    "message": "Google Flow 仅在使用 Shift+Enter 时可用。"
   }
 }

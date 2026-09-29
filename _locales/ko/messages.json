@@ -56,9 +56,6 @@
   "googleAiModeEnable": {
     "message": "Google AI 검색에서도 사용"
   },
-  "serviceAccessNote": {
-    "message": "각 서비스에서 Enter 줄바꿈과 단축키 전송을 사용하려면 해당 서비스의 사이트 접근 권한이 필요합니다. 이 앱은 입력 내용이나 검색 내용을 수집하지 않습니다."
-  },
   "googleAiModeDenied": {
     "message": "권한이 허용되지 않아 AI Mode가 꺼진 상태로 유지됩니다."
   },
@@ -85,5 +82,8 @@
   },
   "serviceError": {
     "message": "설정을 변경하지 못했습니다. 다시 시도해 주세요."
+  },
+  "flowShiftOnlyNotice": {
+    "message": "Google Flow는 Shift+Enter인 경우에만 사용할 수 있습니다."
   }
 }

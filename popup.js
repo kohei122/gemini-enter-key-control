@@ -333,6 +333,8 @@ async function initializePopup() {
   });
 }
 
+let updateFlowModeAvailability = () => {};
+
 async function setupServiceControls(forcedMessages) {
   const simple = { "gemini-service-toggle": "geminiEnabled", "notebook-service-toggle": "notebookEnabled", "chat-service-toggle": "googleChatEnabled" };
   const flow = document.getElementById("flow-service-toggle");
@@ -340,9 +342,31 @@ async function setupServiceControls(forcedMessages) {
   const button = document.getElementById("flow-access-button");
   const status = document.getElementById("service-status");
   const origins = ["https://flow.google.com/*"];
+  const row = document.getElementById("flow-service-row");
+  const note = document.getElementById("flow-mode-note");
+  let mode = null;
+  let busy = true;
+  let modeRevision = 0;
+  const renderAvailability = () => {
+    const unavailable = mode !== "shift";
+    note.hidden = !unavailable;
+    row.classList.toggle("service-unavailable", unavailable);
+    row.setAttribute("aria-disabled", String(unavailable));
+    flow.disabled = button.disabled = busy || unavailable;
+  };
+  updateFlowModeAvailability = value => {
+    modeRevision++;
+    mode = value;
+    renderAvailability();
+  };
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes.mode) updateFlowModeAvailability(changes.mode.newValue ?? "shift");
+  });
+  const initialRevision = modeRevision;
+
   const show = key => { status.textContent = key ? getMessage(key, forcedMessages) : ""; };
   try {
-    const stored = await chrome.storage.local.get({ geminiEnabled: true, notebookEnabled: true, googleChatEnabled: true, flowEnabled: true, flowCurrentEnabled: false });
+    const stored = await chrome.storage.local.get({ geminiEnabled: true, notebookEnabled: true, googleChatEnabled: true, flowEnabled: true, flowCurrentEnabled: false, mode: "shift" });
     for (const [id, key] of Object.entries(simple)) {
       const control = document.getElementById(id);
       control.checked = sanitizeEnabled(stored[key]);
@@ -354,13 +378,17 @@ async function setupServiceControls(forcedMessages) {
         finally { control.disabled = false; }
       });
     }
+    if (initialRevision === modeRevision) mode = stored.mode;
     flow.checked = sanitizeEnabled(stored.flowEnabled);
     const granted = await chrome.permissions.contains({ origins });
     access.hidden = !flow.checked || (stored.flowCurrentEnabled === true && granted);
-    flow.disabled = false;
+    busy = false;
+    renderAvailability();
   } catch { show("serviceError"); return; }
   async function enableCurrent() {
-    flow.disabled = button.disabled = true;
+    if (busy || mode !== "shift") return;
+    busy = true;
+    renderAvailability();
     show("");
     try {
       // Invoked directly by either ON or the access button. A denial retains
@@ -379,12 +407,14 @@ async function setupServiceControls(forcedMessages) {
       if (stored) flow.checked = sanitizeEnabled(stored.flowEnabled);
       access.hidden = !flow.checked;
       show("serviceError");
-    } finally { flow.disabled = button.disabled = false; }
+    } finally { busy = false; renderAvailability(); }
   }
   button.addEventListener("click", enableCurrent);
   flow.addEventListener("click", async () => {
+    if (busy || mode !== "shift") return;
     if (flow.checked) { await enableCurrent(); return; }
-    flow.disabled = button.disabled = true;
+    busy = true;
+    renderAvailability();
     show("");
     try {
       await chrome.storage.local.set({ flowEnabled: false, flowCurrentEnabled: false });
@@ -394,7 +424,7 @@ async function setupServiceControls(forcedMessages) {
       const stored = await chrome.storage.local.get({ flowEnabled: true }).catch(() => null);
       if (stored) flow.checked = sanitizeEnabled(stored.flowEnabled);
       show("serviceError");
-    } finally { access.hidden = !flow.checked; flow.disabled = button.disabled = false; }
+    } finally { access.hidden = !flow.checked; busy = false; renderAvailability(); }
   });
 }
 
@@ -452,6 +482,7 @@ if (modeOptions) {
     if (!(radio instanceof HTMLInputElement)) return;
     if (radio.name !== "mode" || !radio.checked) return;
     const mode = sanitizeModeForPlatform(radio.value, isMacPlatform);
+    updateFlowModeAvailability(mode);
     updateFlowShortcutNotice();
     chrome.storage.local.set({ mode }, () => {
       logStoredSettings("mode setting saved", {

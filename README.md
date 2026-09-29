@@ -22,8 +22,8 @@ A Chrome extension that controls Enter key behavior in Gemini, Gemini Notebook, 
 - Use **Enable current Flow** beside the Flow switch to grant access. Opening the popup does not request permission. Turning Flow back on also asks for current Flow access; declining keeps legacy Flow enabled and current Flow inactive.
 - Turning Flow off stops both hosts, unregisters the current Flow script, and releases only the Flow site permission. Revoking access externally disables current Flow without changing the legacy selection.
 - The dedicated isolated script handles only a focused, unique ProseMirror editor inside `flow-rich-text-editor` and `flow-base-prompt-box`, with one submit button in that same box. Other or ambiguous editors are ignored.
-- Plain Enter dispatches synthetic Shift+Enter so Flow creates its own line break. Send shortcuts synchronously click the same box's submit button. There are no DOM-editing or alternative-send fallbacks. IME, repeat-key, and synthetic-event guards prevent duplicate handling.
-- Current Flow shares all send modes, including Mac Command shortcuts. The older Flow implementation and its Mac limitations are unchanged. Google UI changes can require future selector updates.
+- Plain Enter dispatches synthetic Shift+Enter so Flow creates its own line break. In Shift+Enter mode, a real Shift+Enter synchronously focuses the same box's submit button without cancelling the key's native default action; no synthetic send click is used. There are no DOM-editing or alternative-send fallbacks. IME, repeat-key, and synthetic-event guards prevent duplicate handling.
+- Current Flow intervenes only in the Shift+Enter-only send mode. Other modes (including both-key and Mac Command modes) disable the popup Flow controls without changing saved selections or site access. Switching back restores availability. The updated native handoff and popup behavior were verified by the user in Windows/Chrome. Mac behavior is not verified. The older Flow implementation and its Mac limitations are unchanged. Google UI changes can require future selector updates.
 
 ## Google Search AI Mode (optional)
 

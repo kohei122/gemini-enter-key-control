@@ -56,9 +56,6 @@
   "googleAiModeEnable": {
     "message": "Google AI検索でも有効"
   },
-  "serviceAccessNote": {
-    "message": "各サービスでEnter改行・ショートカット送信を使用するには、それぞれのサービスへのアクセス権限が必要です。このアプリは入力内容や検索内容を収集しません。"
-  },
   "googleAiModeDenied": {
     "message": "許可されなかったため、AI ModeはOFFのままです。"
   },
@@ -85,5 +82,8 @@
   },
   "serviceError": {
     "message": "設定を更新できませんでした。再度お試しください。"
+  },
+  "flowShiftOnlyNotice": {
+    "message": "Google Flowは、「Shift+Enter」の場合のみ利用できます。"
   }
 }

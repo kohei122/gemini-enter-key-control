@@ -265,7 +265,7 @@ async function popupTests() {
   assert(/class="popup-footer">\s*<a[^>]*id="other-extensions-link"[^>]*><\/a>\s*<div[^>]*id="app-version"/.test(html));
   assert(/\.popup-footer\s*\{[^}]*display: flex;[^}]*flex-wrap: wrap;/.test(html));
   assert(source.includes('appVersion.textContent = `v${chrome.runtime.getManifest().version}`;'));
-  assert(!/id="service-access-note"[^>]*\bhidden\b/.test(html), "explanation visible with its parent");
+  assert(!html.includes("service-access-note") && !html.includes("serviceAccessNote"));
   const detailsStart = html.indexOf('<div class="secondary-content" id="secondary-content">');
   const mainHtml = html.slice(0, detailsStart);
   const detailsHtml = html.slice(detailsStart);
@@ -275,8 +275,6 @@ async function popupTests() {
     assert(!mainHtml.includes(`id="${id}"`));
     assert(detailsHtml.includes(`id="${id}"`));
   }
-  assert(!mainHtml.includes('id="service-access-note"'));
-  assert(detailsHtml.includes('id="service-access-note" data-i18n="serviceAccessNote"'));
   assert(/\.secondary-content\s*\{[^}]*max-height: 0;[^}]*opacity: 0;[^}]*overflow: hidden;/.test(html));
   assert(/\.secondary-content\.open\s*\{[^}]*max-height: none;[^}]*opacity: 1;/.test(html));
   assert(/id="google-ai-mode-toggle"[^>]*aria-labelledby="google-ai-mode-title"/.test(html));
@@ -294,10 +292,9 @@ async function popupTests() {
     const wrapClasses = new Set();
     const secondaryContent = { classList: { add: name => classes.add(name) } };
     const secondaryToggleWrap = { classList: { add: name => wrapClasses.add(name) } };
-    const note = {};
     const title = {};
     const elements = { "google-ai-mode-toggle": control, "google-ai-mode-status": status,
-      "service-access-note": note, "google-ai-mode-title": title };
+      "google-ai-mode-title": title };
     const stored = {};
     const calls = [];
     const ctx = vm.createContext({ document: { getElementById: id => elements[id] },
@@ -329,7 +326,6 @@ async function popupTests() {
     assert.strictEqual(secondaryToggle.attrs["aria-expanded"], "true");
     // Preserve the existing one-way disclosure: the button disappears after opening.
     assert(wrapClasses.has("hidden"));
-    assert.strictEqual(note.click, undefined);
     assert.strictEqual(title.click, undefined);
     assert.deepStrictEqual(calls, callsBeforeExpand, "expanding details must not request permission or persist state");
     if (granted) {
@@ -351,16 +347,14 @@ function manifestTests() {
   assert.strictEqual(manifest.background.service_worker, "service_worker.js");
   for (const locale of ["en", "ja", "ko", "zh_CN", "zh_TW", "es", "pt_BR"]) {
     const messages = JSON.parse(read(`_locales/${locale}/messages.json`));
-    for (const key of ["googleAiModeEnable", "serviceAccessNote", "googleAiModeDenied", "googleAiModeError", "detailsLabel"]) assert(messages[key].message);
+    for (const key of ["googleAiModeEnable", "googleAiModeDenied", "googleAiModeError", "detailsLabel"]) assert(messages[key].message);
     assert(!Object.hasOwn(messages, "googleAiModeDetails"));
     const englishKeys = Object.keys(JSON.parse(read("_locales/en/messages.json"))).sort();
     assert.deepStrictEqual(Object.keys(messages).sort(), englishKeys, locale + " locale key parity");
-    assert(!messages.serviceAccessNote.message.includes("google.com"));
+    assert(!Object.hasOwn(messages, "serviceAccessNote"));
     assert(!Object.hasOwn(messages, "googleAiModeNote"));
     if (locale === "ja") {
       assert.strictEqual(messages.detailsLabel.message, "詳細");
-      assert.strictEqual(messages.serviceAccessNote.message,
-        "各サービスでEnter改行・ショートカット送信を使用するには、それぞれのサービスへのアクセス権限が必要です。このアプリは入力内容や検索内容を収集しません。");
     }
   }
 }

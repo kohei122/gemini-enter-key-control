@@ -5,6 +5,7 @@
   const EDITOR = '.ProseMirror[contenteditable="true"]';
   const SEND = 'button[type="submit"]';
   let dispatching = false;
+  let handoffButton = null;
   const COMPOSITION_END_GRACE_MS = 80;
   let state = null;
   let revision = 0;
@@ -44,17 +45,11 @@
     if (button.closest("flow-base-prompt-box") !== root) return null;
     return { editor, button };
   }
-  function shouldSend(event) {
-    let mode = ["shift", "ctrl", "both", "combo", "cmd", "shiftCmd"].includes(state.mode) ? state.mode : "shift";
-    if (!state.isMac && (mode === "cmd" || mode === "shiftCmd")) mode = "shift";
-    const { shiftKey: s, ctrlKey: c, metaKey: m, altKey: a } = event;
-    if (a) return false;
-    if (mode === "shift") return s && !c && !m;
-    if (mode === "ctrl") return c && !s && !m;
-    if (mode === "cmd") return m && !s && !c;
-    if (mode === "both") return [s, c, m].filter(Boolean).length === 1;
-    if (mode === "combo") return s && c && !m;
-    return s && m && !c;
+  function isSendKey(event) {
+    return event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey;
+  }
+  function released(event) {
+    if (event.isTrusted && ["Enter", "NumpadEnter"].includes(event.code)) handoffButton = null;
   }
   function live() {
     if (!chrome.runtime?.id) { dispose(); return false; }
@@ -63,24 +58,51 @@
       composing = false;
       endedAt = -Infinity;
     }
-    return !disposed && state?.enabled && state.selected && state.granted && state.registered && isFlowUrl();
+    return !disposed && state?.enabled && state.selected && state.granted && state.registered && state.mode === "shift" && isFlowUrl();
   }
   function keydown(event) {
     if (dispatching || !live() || !event.isTrusted || !["Enter", "NumpadEnter"].includes(event.code)) return;
     if (composing || event.isComposing || event.keyCode === 229 || event.which === 229 ||
         performance.now() - endedAt < COMPOSITION_END_GRACE_MS) return;
-    const found = composer(event.target);
-    if (!found) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    if (event.repeat) return;
-    if (shouldSend(event)) {
-      const current = composer(event.target);
-      if (!current || current.button !== found.button || !current.button.isConnected ||
-          disabled(current.button) || !visible(current.button)) return;
-      current.button.click();
+    if (event.defaultPrevented) return;
+    // After handoff, repeated keydowns target the focused button, not the editor.
+    if (event.repeat && handoffButton?.isConnected && event.target instanceof Element &&
+        handoffButton.contains(event.target)) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
       return;
     }
+    if (!event.repeat) handoffButton = null;
+    const found = composer(event.target);
+    if (!found) return;
+    if (event.repeat) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    if (isSendKey(event)) {
+      const current = composer(event.target);
+      if (!current || current.button !== found.button || !current.button.isConnected ||
+          disabled(current.button) || !visible(current.button)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+      // Preserve this real key's default action. Flow rejects programmatic clicks.
+      // Do not restore editor focus here: the browser still has to activate the button.
+      event.stopImmediatePropagation();
+      handoffButton = current.button;
+      current.button.focus({ preventScroll: true });
+      if (document.activeElement !== current.button) {
+        handoffButton = null;
+        event.preventDefault(); // Focus failed: do not leak a send key into the editor.
+      }
+      return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    // In shift-only mode, other modified Enter combinations never initiate sending.
+    if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
     // Let ProseMirror create its own BR and transaction. No DOM/execCommand fallback.
     dispatching = true;
     try {
@@ -122,7 +144,9 @@
     disposed = true;
     state = null;
     revision++;
-    document.removeEventListener("keydown", keydown, true);
+    window.removeEventListener("keydown", keydown, true);
+    window.removeEventListener("keyup", released, true);
+    handoffButton = null;
     document.removeEventListener("compositionstart", start, true);
     document.removeEventListener("compositionend", end, true);
     window.removeEventListener("focus", refresh);
@@ -133,7 +157,8 @@
     delete window[KEY];
   }
   window[KEY] = { refresh, dispose };
-  document.addEventListener("keydown", keydown, true);
+  window.addEventListener("keydown", keydown, true);
+  window.addEventListener("keyup", released, true);
   document.addEventListener("compositionstart", start, true);
   document.addEventListener("compositionend", end, true);
   window.addEventListener("focus", refresh);

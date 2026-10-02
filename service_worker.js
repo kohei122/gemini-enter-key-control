@@ -68,9 +68,27 @@ function wake(services = Object.values(OPTIONAL_SERVICES), inject = true) {
 }
 chrome.runtime.onInstalled.addListener(() => wake());
 chrome.runtime.onStartup.addListener(() => wake());
-for (const event of [chrome.permissions.onAdded, chrome.permissions.onRemoved]) {
-  event.addListener(() => wake());
-}
+chrome.permissions.onAdded.addListener(permissions => {
+  // Each optional host is requested only by its service's explicit enable action.
+  // Complete that grant in the worker even if Chrome closed the requesting popup.
+  // Do not infer enable intent from existing permissions at startup/update.
+  const services = Object.values(OPTIONAL_SERVICES).filter(service =>
+    permissions.origins?.includes(service.origin));
+  if (!services.length) return;
+  void schedule(async () => {
+    for (const service of services) {
+      try {
+        // A queued grant may already have been revoked.
+        if (!await chrome.permissions.contains({ origins: [service.origin] })) continue;
+        await chrome.storage.local.set({
+          [service.key]: true, ...(service.parent ? { [service.parent]: true } : {})
+        });
+        await reconcileService(service, true);
+      } catch { /* Preserve a saved selection; lifecycle events can retry registration. */ }
+    }
+  });
+});
+chrome.permissions.onRemoved.addListener(() => wake());
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
   const services = Object.values(OPTIONAL_SERVICES).filter(service =>

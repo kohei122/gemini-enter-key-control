@@ -440,9 +440,141 @@ async function workerTests() {
   assert.strictEqual(scripts.size, 2, "worker restart repairs both services without duplicate registration");
 }
 
+async function permissionCompletionTests() {
+  const popupSource = read("popup.js");
+  const setup = popupSource.slice(popupSource.indexOf("let updateFlowModeAvailability"),
+    popupSource.indexOf("\ninitializePopup();"));
+  for (const kind of ["ai", "flow"]) {
+    const origin = kind === "ai" ? "https://www.google.com/*" : "https://flow.google.com/*";
+    const otherOrigin = kind === "ai" ? "https://flow.google.com/*" : "https://www.google.com/*";
+    const key = kind === "ai" ? "googleAiModeEnabled" : "flowCurrentEnabled";
+    const otherKey = kind === "ai" ? "flowCurrentEnabled" : "googleAiModeEnabled";
+    const id = kind === "ai" ? "google-ai-mode" : "google-flow-current";
+    const stored = { enabled: true, mode: "shift", googleAiModeEnabled: false,
+      flowEnabled: false, flowCurrentEnabled: false };
+    const grants = new Set(), scripts = new Map(), injected = [], requests = [], removed = [];
+    let outcome = "abandon", failRegistration = false;
+    const chrome = {
+      storage: { onChanged: signal(), local: {
+        get: async defaults => ({ ...defaults, ...stored }),
+        set: async values => { Object.assign(stored, values); }
+      } },
+      permissions: {
+        onAdded: signal(), onRemoved: signal(),
+        contains: async ({ origins }) => grants.has(origins[0]),
+        request: ({ origins }) => {
+          requests.push(origins[0]);
+          if (outcome === "deny") return Promise.resolve(false);
+          if (!grants.has(origins[0])) {
+            grants.add(origins[0]);
+            chrome.permissions.onAdded.fire({ origins: [...origins] });
+          }
+          // No popup code after await request runs in the abandonment case.
+          return outcome === "abandon" ? new Promise(() => {}) : Promise.resolve(true);
+        },
+        remove: async ({ origins }) => {
+          removed.push(origins[0]); grants.delete(origins[0]);
+          chrome.permissions.onRemoved.fire({ origins: [...origins] }); return true;
+        }
+      },
+      scripting: {
+        getRegisteredContentScripts: async ({ ids }) => [...scripts.values()].filter(x => ids.includes(x.id)),
+        registerContentScripts: async values => {
+          if (failRegistration) throw Error("registration failed");
+          values.forEach(x => { assert(!scripts.has(x.id)); scripts.set(x.id, x); });
+        },
+        updateContentScripts: async values => values.forEach(x => scripts.set(x.id, x)),
+        unregisterContentScripts: async ({ ids }) => ids.forEach(x => scripts.delete(x)),
+        executeScript: async value => injected.push(value.files[0])
+      },
+      tabs: { query: async () => [{ id: 1 }], sendMessage: async () => {} },
+      runtime: {
+        id: "test", getURL: p => "chrome-extension://test/" + p,
+        getPlatformInfo: async () => ({ os: "win" }),
+        onInstalled: signal(), onStartup: signal(), onMessage: signal()
+      }
+    };
+    let worker;
+    const restart = () => {
+      chrome.permissions.onAdded = signal(); chrome.permissions.onRemoved = signal();
+      chrome.storage.onChanged = signal();
+      chrome.runtime.onInstalled = signal(); chrome.runtime.onStartup = signal(); chrome.runtime.onMessage = signal();
+      worker = vm.createContext({ chrome, URL });
+      vm.runInContext(read("service_worker.js"), worker);
+    };
+    chrome.runtime.sendMessage = message => new Promise(resolve =>
+      chrome.runtime.onMessage.fire(message, { id: "test", url: "chrome-extension://test/popup.html" }, resolve));
+    const drain = async () => { await vm.runInContext("queue", worker); await tick(); await vm.runInContext("queue", worker); };
+    const openPopup = async () => {
+      const elements = new Map();
+      const element = name => {
+        if (!elements.has(name)) elements.set(name, {
+          classList: { toggle() {} }, setAttribute() {},
+          addEventListener(_, callback) { this.click = callback; }
+        });
+        return elements.get(name);
+      };
+      const ctx = vm.createContext({ chrome, document: { getElementById: element },
+        getMessage: key => key, sanitizeEnabled: value => value !== false && value !== "false" });
+      vm.runInContext(setup, ctx);
+      await vm.runInContext(kind === "ai" ? "setupGoogleAiMode(null)" : "setupServiceControls(null)", ctx);
+      return { toggle: element(kind === "ai" ? "google-ai-mode-toggle" : "flow-service-toggle"),
+        access: element("flow-access") };
+    };
+    restart(); await drain();
+    chrome.runtime.onInstalled.fire(); chrome.runtime.onStartup.fire(); await drain();
+    assert.strictEqual(requests.length, 0);
+    chrome.permissions.onAdded.fire({ permissions: ["storage"], origins: [otherOrigin + "unrelated"] });
+    await drain(); assert.strictEqual(stored[key], false);
+    let popup = await openPopup();
+    assert.strictEqual(requests.length, 0, "opening never requests");
+    popup.toggle.checked = true; void popup.toggle.click();
+    await drain();
+    assert.deepStrictEqual(requests, [origin]);
+    assert.strictEqual(stored[key], true, kind + " grant survives lost popup continuation");
+    if (kind === "flow") assert.strictEqual(stored.flowEnabled, true);
+    assert.strictEqual(stored[otherKey], false);
+    assert(scripts.has(id)); assert(injected.includes(kind === "ai" ? "google_ai_mode.js" : "google_flow_current.js"));
+    popup = await openPopup(); assert(popup.toggle.checked);
+    if (kind === "flow") assert(popup.access.hidden);
+    assert.strictEqual(requests.length, 1, "reopening requires no second action");
+    restart(); await drain(); assert(scripts.has(id), "worker restart preserves activation");
+    // Revocation clears only the corresponding optional selection.
+    grants.delete(origin); chrome.permissions.onRemoved.fire({ origins: [origin] }); await drain();
+    assert.strictEqual(stored[key], false); assert(!scripts.has(id));
+    if (kind === "flow") assert.strictEqual(stored.flowEnabled, true, "legacy selection preserved");
+    popup = await openPopup();
+    if (kind === "ai") assert(!popup.toggle.checked); else assert(!popup.access.hidden);
+    outcome = "deny"; popup.toggle.checked = true; await popup.toggle.click(); await drain();
+    assert(!stored[key] && !scripts.has(id) && !grants.has(origin));
+    outcome = "allow"; popup = await openPopup(); popup.toggle.checked = true;
+    await popup.toggle.click(); await drain(); assert(stored[key] && scripts.has(id), "retry after denial");
+    // Existing permission is insufficient to override a saved OFF at startup.
+    stored[key] = false; restart(); await drain();
+    assert(!stored[key] && !scripts.has(id)); assert(grants.has(origin));
+    popup = await openPopup(); popup.toggle.checked = true; await popup.toggle.click(); await drain();
+    assert(stored[key] && scripts.has(id), "already-granted request completes without onAdded");
+    // Master OFF remains OFF even when a new host is explicitly granted.
+    grants.delete(origin); stored[key] = false; stored.enabled = false;
+    grants.add(origin); chrome.permissions.onAdded.fire({ origins: [origin] }); await drain();
+    assert(stored[key] && !stored.enabled && !scripts.has(id));
+    stored.enabled = true; chrome.storage.onChanged.fire({ enabled: {} }, "local"); await drain(); assert(scripts.has(id));
+    // A stale grant notification cannot enable a host that is no longer granted.
+    grants.delete(origin); chrome.permissions.onRemoved.fire({ origins: [origin] }); await drain();
+    chrome.permissions.onAdded.fire({ origins: [origin] }); await drain(); assert(!stored[key]);
+    failRegistration = true; grants.add(origin);
+    chrome.permissions.onAdded.fire({ origins: [origin] }); await drain();
+    assert(stored[key] && !scripts.has(id), "failure retains selection for lifecycle repair");
+    failRegistration = false; restart(); await drain(); assert(scripts.has(id));
+    assert.strictEqual(stored[otherKey], false);
+    assert(!grants.has(otherOrigin));
+    assert.strictEqual(removed.length, 0, "no implicit permission removal");
+  }
+}
+
 function manifestAndLocales() {
   const manifest = JSON.parse(read("manifest.json"));
-  assert.strictEqual(manifest.version, "1.6.4");
+  assert.strictEqual(manifest.version, "1.6.5");
   assert.deepStrictEqual(manifest.optional_host_permissions, ["https://www.google.com/*", "https://flow.google.com/*"]);
   assert(!manifest.host_permissions);
   assert(!manifest.content_scripts.some(script => script.matches.some(match => match.includes("flow.google.com"))));
@@ -454,6 +586,6 @@ function manifestAndLocales() {
 }
 
 (async () => {
-  await flowTests(); await staticServiceTests(); await popupTests(); await popupAvailabilityTests(); await workerTests(); manifestAndLocales();
+  await flowTests(); await staticServiceTests(); await popupTests(); await popupAvailabilityTests(); await workerTests(); await permissionCompletionTests(); manifestAndLocales();
   console.log("Service controls, current Flow, optional-host isolation, popup, and locale tests: PASS");
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -205,9 +205,7 @@ async function workerTests() {
   chrome.permissions.onAdded.fire({ origins: ["https://www.google.com/*"] });
   await drain();
   assert.strictEqual(granted, true, "grant event before setting must not revoke permission");
-  stored.googleAiModeEnabled = true;
-  chrome.storage.onChanged.fire({ googleAiModeEnabled: {} }, "local");
-  await drain();
+  assert.strictEqual(stored.googleAiModeEnabled, true, "worker completes grant without popup continuation");
   assert.strictEqual(scripts.length, 1);
   assert(injections > 0);
   chrome.runtime.onInstalled.fire();

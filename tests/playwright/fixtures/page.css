@@ -1,0 +1,4 @@
+body { margin: 24px; font: 16px sans-serif; }
+form, c-wiz, main { display: block; margin-bottom: 20px; }
+[contenteditable], textarea { display: block; width: 440px; min-height: 80px; white-space: pre-wrap; border: 1px solid; }
+[hidden] { display: none !important; }

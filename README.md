@@ -167,3 +167,9 @@ Before release, verify the installed extension in Chrome: permission accept/deny
 ## Note
 
 - This extension depends on Gemini's internal UI/event behavior, so future Gemini UI changes may affect functionality.
+
+## Browser regression tests
+
+Run `npm ci` and `npx playwright install chromium`, then `npm run test:unit`, `npm run test:browser`, or `npm run test:all`.
+The existing three unit scripts are unchanged. The 35 added browser tests load the shipping extension into bundled Chromium against local mock fixtures, without contacting Google services.
+See [Playwright Mock DOM tests](tests/playwright/README.md) for service scope, URL interception, historical regression evidence, and limits.

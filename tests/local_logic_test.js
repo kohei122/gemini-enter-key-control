@@ -780,6 +780,46 @@ globalThis.__setTestSettings = (mode, isMac) => {
     assert.strictEqual(composing.prevented, 0);
   }
 
+  // Notebook's connected-app menu must not become a send candidate.
+  for (const hostname of ["notebook.google.com", "notebooklm.google.com"]) {
+    context.location.hostname = hostname;
+    for (const [mode, modifiers, isMac] of [
+      ["shift", { shiftKey: true }, false],
+      ["ctrl", { ctrlKey: true }, false],
+      ["cmd", { metaKey: true }, true],
+      ["both", { shiftKey: true }, false],
+      ["both", { ctrlKey: true }, false],
+      ["both", { metaKey: true }, true],
+      ["combo", { shiftKey: true, ctrlKey: true }, false],
+      ["shiftCmd", { shiftKey: true, metaKey: true }, true]
+    ]) {
+      const composer = makeNotebookComposer();
+      const menu = makeButton("tune");
+      menu.setAttribute("type", "button");
+      menu.setAttribute("aria-haspopup", "menu");
+      menu.className = "mat-mdc-menu-trigger";
+      composer.container.append(menu);
+      context.__setTestSettings(mode, isMac);
+      api.handleKey(notebookEvent(modifiers, { target: composer.textarea }).event);
+      assert.strictEqual(composer.button.clickCount, 1, `${hostname} ${mode}: menu + send`);
+      assert.strictEqual(menu.clickCount, 0);
+
+      // Unknown popup values remain candidates, even with a menu-looking class/icon.
+      for (const popup of ["true", "dialog", "", null]) {
+        if (popup === null) menu.removeAttribute("aria-haspopup");
+        else menu.setAttribute("aria-haspopup", popup);
+        assert.strictEqual(api.findNotebookLmSendButton(composer.textarea), null);
+      }
+      menu.setAttribute("aria-haspopup", "menu");
+      menu.className = ""; // The explicit semantic attribute alone is sufficient.
+      assert.strictEqual(api.findNotebookLmSendButton(composer.textarea), composer.button);
+      composer.button.setAttribute("aria-haspopup", "menu");
+      api.handleKey(notebookEvent(modifiers, { target: composer.textarea }).event);
+      assert.strictEqual(composer.button.clickCount, 1, "menu-only candidates must not send");
+      assert.strictEqual(menu.clickCount, 0);
+    }
+  }
+
   const makeGoogleChatComposer = (sendAriaLabel = "localized send label") => {
     const root = new ElementMock("c-wiz");
     root.setAttribute("data-is-room-compose-postbar", "true");
@@ -1210,7 +1250,7 @@ function verifyManifestScope() {
       .filter((match) => match === "https://chat.google.com/*").length,
     1
   );
-  assert.strictEqual(manifest.version, "1.6.5");
+  assert.strictEqual(manifest.version, "1.6.6");
   assert.strictEqual(Object.hasOwn(manifest, "host_permissions"), false);
   assert.strictEqual(Object.hasOwn(manifest, "web_accessible_resources"), false);
   assert(!manifest.content_scripts

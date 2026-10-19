@@ -1953,7 +1953,9 @@ function findNotebookLmSendButton(textarea) {
   if (container.querySelectorAll("textarea").length !== 1) return null;
 
   // Fail closed on ambiguous UI; never search another composer or form.
-  const buttons = container.querySelectorAll("button");
+  // Exclude only explicit menu triggers from the send candidates; leave the DOM intact.
+  const buttons = Array.from(container.querySelectorAll("button"))
+    .filter((button) => button.getAttribute("aria-haspopup") !== "menu");
   if (buttons.length !== 1) return null;
 
   const button = buttons[0];

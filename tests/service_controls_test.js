@@ -574,7 +574,7 @@ async function permissionCompletionTests() {
 
 function manifestAndLocales() {
   const manifest = JSON.parse(read("manifest.json"));
-  assert.strictEqual(manifest.version, "1.6.5");
+  assert.strictEqual(manifest.version, "1.6.6");
   assert.deepStrictEqual(manifest.optional_host_permissions, ["https://www.google.com/*", "https://flow.google.com/*"]);
   assert(!manifest.host_permissions);
   assert(!manifest.content_scripts.some(script => script.matches.some(match => match.includes("flow.google.com"))));

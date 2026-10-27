@@ -76,7 +76,6 @@ const SEND_BUTTON_SELECTORS = [
 ];
 const GEMINI_COMPOSER_ROOT_MAX_ANCESTOR_DEPTH = 10;
 const GEMINI_COMPOSER_ROOT_MAX_BUTTONS = 24;
-const GEMINI_SEND_BUTTON_AMBIGUOUS_SCORE_GAP = 15;
 const GEMINI_SEND_BUTTON_MIN_SCORE = 70;
 const GEMINI_SEND_ARIA_LABEL_PATTERNS = [
   "プロンプトを送信",
@@ -258,7 +257,7 @@ const GEMINI_EXCLUDED_BUTTON_CLASS_PATTERNS = [
   "mat-menu-trigger"
 ];
 const GEMINI_EXCLUDED_BUTTON_METADATA_PATTERN =
-  /\b(?:feedback|comment|report|mic|microphone|voice|audio|attach|attachment|upload|file|image|menu|more|option|settings|sidebar|history|recent|model|selector|open|close|expand|collapse)\b/i;
+  /\b(?:feedback|comment|report|export|download|mic|microphone|voice|audio|attach|attachment|upload|file|image|menu|more|option|settings|sidebar|history|recent|model|selector|open|close|expand|collapse)\b/i;
 const GEMINI_SEND_BUTTON_METADATA_PATTERN = /\b(?:send|submit)\b/i;
 const GEMINI_SEND_BUTTON_JSLOG_PREFIX = "173899";
 const GEMINI_EXCLUDED_BUTTON_JSLOG_PREFIXES = [
@@ -644,7 +643,12 @@ function collectCandidates(root, selector, list, seen) {
 }
 
 function findSendButton(textbox) {
+  if (!isUsableGeminiTextbox(textbox)) return null;
   const candidates = collectGeminiSendButtonCandidates(textbox);
+  // Contradictory send/non-send metadata is not resolved by a telemetry score.
+  if (candidates.some((candidate) => isGeminiElementVisible(candidate) &&
+      !isElementDisabled(candidate) && hasStrongGeminiSendSignal(candidate) &&
+      isExcludedGeminiButton(candidate))) return null;
   const rankedCandidates = candidates
     .map((candidate) => ({
       button: candidate,
@@ -654,22 +658,21 @@ function findSendButton(textbox) {
     .filter((candidate) => candidate.score >= GEMINI_SEND_BUTTON_MIN_SCORE && candidate.hasStrongSendSignal)
     .sort((a, b) => b.score - a.score);
 
-  if (rankedCandidates.length === 0) {
-    return findSendButtonBySingleRemainingCandidate(candidates);
-  }
-  if (
-    rankedCandidates.length > 1 &&
-    rankedCandidates[0].score - rankedCandidates[1].score < GEMINI_SEND_BUTTON_AMBIGUOUS_SCORE_GAP
-  ) {
-    return null;
-  }
-
-  return rankedCandidates[0].button;
+  // Score measures plausibility, not ownership. A single unknown button is
+  // not a send identity; multiple send identities remain ambiguous.
+  return rankedCandidates.length === 1 ? rankedCandidates[0].button : null;
 }
 
-function findSendButtonBySingleRemainingCandidate(candidates) {
-  const remainingCandidates = candidates.filter((candidate) => isSelectableGeminiButton(candidate));
-  return remainingCandidates.length === 1 ? remainingCandidates[0] : null;
+function isGeminiElementVisible(element) {
+  if (!element?.isConnected || !isElementVisible(element)) return false;
+  const style = getComputedStyle(element);
+  return style.visibility !== "hidden" && style.visibility !== "collapse" &&
+    style.display !== "none";
+}
+
+function isUsableGeminiTextbox(textbox) {
+  return textbox instanceof HTMLElement && textbox.matches(TEXTBOX_SELECTOR) &&
+    isGeminiElementVisible(textbox) && !isElementDisabled(textbox);
 }
 
 function collectSendButtonCandidates(textbox) {
@@ -726,6 +729,8 @@ function isUsableGeminiComposerRoot(root, textbox) {
   if (!(root instanceof HTMLElement)) return false;
   if (isBroadGeminiComposerRoot(root)) return false;
   if (!root.contains(textbox)) return false;
+  const inputs = Array.from(root.querySelectorAll(TEXTBOX_SELECTOR)).filter(isUsableGeminiTextbox);
+  if (inputs.length !== 1 || inputs[0] !== textbox) return false;
 
   const buttons = root.querySelectorAll("button");
   if (buttons.length === 0 || buttons.length > GEMINI_COMPOSER_ROOT_MAX_BUTTONS) return false;
@@ -786,7 +791,6 @@ function isExcludedGeminiButton(candidate) {
   const className = String(candidate.className || "");
   const metadata = getGeminiButtonMetadata(candidate);
 
-  if (hasGeminiSendJslog(candidate)) return false;
   if (hasExcludedGeminiJslog(candidate)) return true;
   if (isGeminiModePickerButton(candidate)) return true;
   if (includesAny(ariaLabel, GEMINI_EXCLUDED_BUTTON_ARIA_LABEL_PATTERNS)) return true;
@@ -801,7 +805,7 @@ function isExcludedGeminiButton(candidate) {
 
 function isSelectableGeminiButton(candidate) {
   if (!(candidate instanceof HTMLButtonElement)) return false;
-  if (!isElementVisible(candidate)) return false;
+  if (!isGeminiElementVisible(candidate)) return false;
   if (isElementDisabled(candidate)) return false;
   if (isExcludedGeminiButton(candidate)) return false;
   return true;
@@ -942,6 +946,7 @@ function dispatchSyntheticShiftEnter(textbox, shouldFocus = true) {
 
 function sendMessageByButton(textbox) {
   if (!currentServiceEnabled()) return false;
+  if (!isUsableGeminiTextbox(textbox) || !textbox.contains(document.activeElement)) return false;
   const shouldLog = DEBUG_LOG_GEMINI_SEND_BUTTON_CANDIDATES &&
     location.hostname === "gemini.google.com";
   const candidates = shouldLog ? collectSendButtonCandidates(textbox) : null;
@@ -951,8 +956,9 @@ function sendMessageByButton(textbox) {
     logSendButtonCandidates(textbox, candidates, button);
   }
 
-  if (!button) return;
+  if (!button) return false;
   button.click();
+  return true;
 }
 
 function findFlowGenerateButton(textbox) {
@@ -2429,8 +2435,7 @@ function handleKey(event) {
       console.log("[Gemini Enter Key Control] skipped Gemini send button click");
       return;
     }
-    sendMessageByButton(textbox);
-    restoreGeminiTextboxFocusAfterSend();
+    if (sendMessageByButton(textbox)) restoreGeminiTextboxFocusAfterSend();
     return;
   }
 

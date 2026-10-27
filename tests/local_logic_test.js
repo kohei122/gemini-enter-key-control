@@ -49,6 +49,10 @@ class ElementMock extends EventTargetMock {
     if (selectors.length > 1) return selectors.some((item) => this.matches(item));
     const classes = String(this.className || "").split(/\s+/).filter(Boolean);
     if (selector === "textarea") return this.tagName === "TEXTAREA";
+    if (selector === 'div[contenteditable="true"][role="textbox"]') {
+      return this.tagName === "DIV" && this.getAttribute("contenteditable") === "true" &&
+        this.getAttribute("role") === "textbox";
+    }
     if (selector === ".message-container") return classes.includes("message-container");
     if (selector === "source-discovery-query-box") return this.tagName === "SOURCE-DISCOVERY-QUERY-BOX";
     if (selector === "textarea.query-box-input") {
@@ -568,6 +572,8 @@ globalThis.__setTestSettings = (mode, isMac) => {
   context.location.pathname = "/app";
   const geminiRoot = new ElementMock("section");
   const geminiTextbox = new ElementMock("div");
+  geminiTextbox.setAttribute("contenteditable", "true");
+  geminiTextbox.setAttribute("role", "textbox");
   const upload = makeButton("Upload");
   upload.setAttribute("jslog", "300142;track:generic_click");
   const geminiSend = makeButton("Skicka meddelande");
